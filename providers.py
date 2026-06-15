@@ -264,31 +264,41 @@ def fetch_company_ats(keywords, location="", country=None, salary_min=None, limi
     if not spec.strip():
         return []
     kw = [w for w in keywords.lower().split() if len(w) > 2]
-    out = []
+    entries = []
     for entry in spec.split(","):
         entry = entry.strip()
-        if ":" not in entry:
-            continue
-        ats, slug = entry.split(":", 1)
-        ats, slug = ats.strip().lower(), slug.strip()
+        if ":" in entry:
+            ats, slug = entry.split(":", 1)
+            entries.append((ats.strip().lower(), slug.strip()))
+    if not entries:
+        return []
+
+    def _one(item):
+        ats, slug = item
         try:
-            jobs = _ats_fetch(ats, slug)
+            return ats, slug, _ats_fetch(ats, slug)
         except Exception:
-            continue
-        for j in jobs:
-            text = (str(j.get("title")) + " " + str(j.get("desc"))).lower()
-            if kw and not any(w in text for w in kw):
-                continue
-            out.append({"id": _hash_id("ats", ats, j.get("_id") or j.get("url")),
-                        "title": _clean(j.get("title")), "company": slug.capitalize(),
-                        "location": _clean(j.get("location")) or "—", "country": (country or "").upper(),
-                        "salary_min": None, "salary_max": None, "currency": "", "salary": None,
-                        "remote": "remote" in text or "удал" in text,
-                        "url": j.get("url"), "description": (j.get("desc") or "")[:1500],
-                        "source": "Company: " + slug})
-            if len(out) >= limit:
-                return out
-    return out
+            return ats, slug, []
+
+    out = []
+    with ThreadPoolExecutor(max_workers=min(12, len(entries))) as ex:
+        for ats, slug, jobs in ex.map(_one, entries):
+            per = 0
+            for j in jobs:
+                text = (str(j.get("title")) + " " + str(j.get("desc"))).lower()
+                if kw and not any(w in text for w in kw):
+                    continue
+                out.append({"id": _hash_id("ats", ats, j.get("_id") or j.get("url")),
+                            "title": _clean(j.get("title")), "company": slug.capitalize(),
+                            "location": _clean(j.get("location")) or "—", "country": (country or "").upper(),
+                            "salary_min": None, "salary_max": None, "currency": "", "salary": None,
+                            "remote": "remote" in text or "удал" in text,
+                            "url": j.get("url"), "description": (j.get("desc") or "")[:1500],
+                            "source": "Company: " + slug})
+                per += 1
+                if per >= 5:  # cap per company so one big board doesn't dominate
+                    break
+    return out[:limit]
 
 
 COUNTRY_CODE = {"russia":"RU","россия":"RU","рф":"RU","usa":"US","united states":"US","сша":"US","america":"US",
