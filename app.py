@@ -178,8 +178,10 @@ def health():
             "anthropic": bool(os.getenv("ANTHROPIC_API_KEY")),
             "jooble": bool(os.getenv("JOOBLE_API_KEY")),
             "adzuna": bool(os.getenv("ADZUNA_APP_ID") and os.getenv("ADZUNA_APP_KEY")),
+            "superjob": bool(os.getenv("SUPERJOB_KEY")),
+            "hh_token": bool(os.getenv("HH_TOKEN")),
         },
-        "always_on": ["hh.ru", "Remotive"],
+        "always_on": ["hh.ru", "Remotive", "Trudvsem"],
     }
 
 
