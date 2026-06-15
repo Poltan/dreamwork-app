@@ -210,8 +210,11 @@ async def match(
     if len(resume_text.strip()) < 50:
         raise HTTPException(400, "Could not extract enough text from the resume.")
 
-    profile = _extract_json(_ask_claude(
-        PROFILE_PROMPT.format(resume=resume_text[:8000]), max_tokens=900))
+    try:
+        profile = _extract_json(_ask_claude(
+            PROFILE_PROMPT.format(resume=resume_text[:7000]), max_tokens=1500))
+    except Exception:
+        profile = {}
 
     # If the user left the country blank, infer it from the resume (location/language).
     if not (country or "").strip():
@@ -276,7 +279,10 @@ async def match(
             top_sal = j.get("salary_max") or j.get("salary_min")
             if not top_sal or _to_rub(top_sal, j.get("currency")) >= min_rub * 0.9:
                 kept.append(j)
-        jobs = kept
+        # Soft filter: apply only if enough remain; otherwise keep the full pool so a
+        # high salary ask doesn't zero out results (salary stays a ranking preference).
+        if len(kept) >= 3:
+            jobs = kept
 
     if not jobs:
         return JSONResponse({"profile": profile, "jobs": [], "debug": debug,
