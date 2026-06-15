@@ -185,6 +185,7 @@ def health():
             "adzuna": bool(os.getenv("ADZUNA_APP_ID") and os.getenv("ADZUNA_APP_KEY")),
             "superjob": bool(os.getenv("SUPERJOB_KEY")),
             "hh_token": bool(os.getenv("HH_TOKEN")),
+            "scraper": bool(os.getenv("SCRAPER_API_KEY")),
         },
         "always_on": ["hh.ru", "Remotive", "Trudvsem"],
     }

@@ -51,15 +51,31 @@ def fetch_adzuna(keywords, location="", country="us", salary_min=None, limit=20)
                     "url": j.get("redirect_url"), "description": _clean(j.get("description"))[:1500], "source": "Adzuna"})
     return out
 
+def _scraper_get(target_url, country=None):
+    """GET target via ScraperAPI if SCRAPER_API_KEY is set; else None (caller goes direct)."""
+    key = os.getenv("SCRAPER_API_KEY")
+    if not key:
+        return None
+    p = {"api_key": key, "url": target_url}
+    if country:
+        p["country_code"] = country
+    return requests.get("https://api.scraperapi.com/", params=p, timeout=70)
+
+
 def fetch_jooble(keywords, location="", country=None, salary_min=None, limit=20):
     key = os.getenv("JOOBLE_API_KEY")
     if not key: return []
+    target = f"https://jooble.org/api/{key}"
+    body = {"keywords": keywords, "location": location or "", "page": "1"}
+    sk = os.getenv("SCRAPER_API_KEY")
     try:
-        r = requests.post(f"https://jooble.org/api/{key}",
-                          json={"keywords": keywords, "location": location or "", "page": "1"},
-                          headers={"Content-Type": "application/json"}, timeout=TIMEOUT)
+        if sk:
+            r = requests.post("https://api.scraperapi.com/", params={"api_key": sk, "url": target},
+                              json=body, headers={"Content-Type": "application/json"}, timeout=70)
+        else:
+            r = requests.post(target, json=body, headers={"Content-Type": "application/json"}, timeout=TIMEOUT)
         if r.status_code != 200:
-            return [{"_error": f"jooble HTTP {r.status_code}: {r.text[:160]}"}]
+            return [{"_error": f"jooble HTTP {r.status_code}: {r.text[:120]}"}]
         data = r.json()
     except Exception as e:
         return [{"_error": f"jooble: {e}"}]
@@ -80,8 +96,11 @@ def fetch_hh(keywords, location="", country=None, salary_min=None, limit=20):
     tok = os.getenv("HH_TOKEN")
     if tok:
         headers["Authorization"] = f"Bearer {tok}"
+    full = requests.Request("GET", "https://api.hh.ru/vacancies", params=params).prepare().url
     try:
-        r = requests.get("https://api.hh.ru/vacancies", params=params, headers=headers, timeout=TIMEOUT)
+        r = _scraper_get(full, country="ru")
+        if r is None:
+            r = requests.get(full, headers=headers, timeout=TIMEOUT)
         r.raise_for_status(); data = r.json()
     except Exception as e:
         return [{"_error": f"hh: {e}"}]
