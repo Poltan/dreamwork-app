@@ -62,6 +62,12 @@ def _scraper_get(target_url, country=None):
     return requests.get("https://api.scraperapi.com/", params=p, timeout=70)
 
 
+def _proxies():
+    """A residential/mobile proxy (e.g. Russian IP for hh.ru). PROXY_URL=http://user:pass@host:port"""
+    u = os.getenv("PROXY_URL")
+    return {"http": u, "https": u} if u else None
+
+
 def fetch_jooble(keywords, location="", country=None, salary_min=None, limit=20):
     key = os.getenv("JOOBLE_API_KEY")
     if not key: return []
@@ -73,7 +79,8 @@ def fetch_jooble(keywords, location="", country=None, salary_min=None, limit=20)
             r = requests.post("https://api.scraperapi.com/", params={"api_key": sk, "url": target},
                               json=body, headers={"Content-Type": "application/json"}, timeout=70)
         else:
-            r = requests.post(target, json=body, headers={"Content-Type": "application/json"}, timeout=TIMEOUT)
+            r = requests.post(target, json=body, headers={"Content-Type": "application/json"},
+                              timeout=30, proxies=_proxies())
         if r.status_code != 200:
             return [{"_error": f"jooble HTTP {r.status_code}: {r.text[:120]}"}]
         data = r.json()
@@ -100,7 +107,7 @@ def fetch_hh(keywords, location="", country=None, salary_min=None, limit=20):
     try:
         r = _scraper_get(full, country="ru")
         if r is None:
-            r = requests.get(full, headers=headers, timeout=TIMEOUT)
+            r = requests.get(full, headers=headers, timeout=30, proxies=_proxies())
         r.raise_for_status(); data = r.json()
     except Exception as e:
         return [{"_error": f"hh: {e}"}]

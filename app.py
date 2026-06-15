@@ -188,6 +188,7 @@ def health():
             "scraper": bool(os.getenv("SCRAPER_API_KEY")),
             "jsearch": bool(os.getenv("RAPIDAPI_KEY")),
             "company_ats": bool(os.getenv("COMPANY_ATS")),
+            "proxy": bool(os.getenv("PROXY_URL")),
         },
         "always_on": ["hh.ru", "Remotive", "Trudvsem"],
     }
