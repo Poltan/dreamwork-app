@@ -1,5 +1,6 @@
 """Dreamwork — job providers layer (hybrid sourcing + country routing + dedup)."""
 import os, re, hashlib, requests
+from concurrent.futures import ThreadPoolExecutor
 
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                      "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"}
@@ -35,7 +36,6 @@ def fetch_adzuna(keywords, location="", country="us", salary_min=None, limit=20)
     params = {"app_id": app_id, "app_key": app_key, "results_per_page": min(limit, 50),
               "what": keywords, "content-type": "application/json"}
     if location: params["where"] = location
-    if salary_min: params["salary_min"] = int(salary_min)
     try:
         r = requests.get(url, params=params, headers=UA, timeout=TIMEOUT); r.raise_for_status(); data = r.json()
     except Exception as e:
@@ -76,9 +76,12 @@ def fetch_jooble(keywords, location="", country=None, salary_min=None, limit=20)
 def fetch_hh(keywords, location="", country=None, salary_min=None, limit=20):
     text = f"{keywords} {location}".strip() if location else keywords
     params = {"text": text, "per_page": min(limit, 50), "page": 0}
-    if salary_min: params["salary"] = int(salary_min)
+    headers = dict(UA)
+    tok = os.getenv("HH_TOKEN")
+    if tok:
+        headers["Authorization"] = f"Bearer {tok}"
     try:
-        r = requests.get("https://api.hh.ru/vacancies", params=params, headers=UA, timeout=TIMEOUT)
+        r = requests.get("https://api.hh.ru/vacancies", params=params, headers=headers, timeout=TIMEOUT)
         r.raise_for_status(); data = r.json()
     except Exception as e:
         return [{"_error": f"hh: {e}"}]
@@ -126,8 +129,6 @@ def fetch_trudvsem(keywords, location="", country=None, salary_min=None, limit=2
     for item in vacs[:limit]:
         v = item.get("vacancy") or {}
         sf, st = v.get("salary_min"), v.get("salary_max")
-        if salary_min and (sf or 0) and sf < salary_min:
-            continue
         out.append({"id": _hash_id("trudvsem", v.get("id")),
                     "title": _clean(v.get("job-name")),
                     "company": _clean((v.get("company") or {}).get("name")),
@@ -170,15 +171,20 @@ def search_jobs(keywords, location="", country="", salary_min=None, remote_ok=Fa
     if remote_ok or is_global:
         providers.append(("remotive", lambda: fetch_remotive(keywords, location, code, salary_min, per_provider)))
     jobs, debug = [], {}
-    for name, fn in providers:
+    def _run(item):
+        name, fn = item
         try:
-            res = fn()
+            return name, fn(), None
         except Exception as e:
-            debug[name] = f"exception: {e}"; continue
-        errs = [r["_error"] for r in res if isinstance(r, dict) and r.get("_error")]
-        clean = [r for r in res if not (isinstance(r, dict) and r.get("_error"))]
-        debug[name] = errs[0] if errs else f"{len(clean)} jobs"
-        jobs.extend(clean)
+            return name, None, e
+    with ThreadPoolExecutor(max_workers=max(1, len(providers))) as ex:
+        for name, res, err in ex.map(_run, providers):
+            if err is not None:
+                debug[name] = f"exception: {err}"; continue
+            errs = [r["_error"] for r in res if isinstance(r, dict) and r.get("_error")]
+            clean = [r for r in res if not (isinstance(r, dict) and r.get("_error"))]
+            debug[name] = errs[0] if errs else f"{len(clean)} jobs"
+            jobs.extend(clean)
     seen, deduped = set(), []
     for j in jobs:
         sig = (j.get("title","").lower(), j.get("company","").lower())

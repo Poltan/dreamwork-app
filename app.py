@@ -17,6 +17,7 @@ import os
 import io
 import json
 import pathlib
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -100,6 +101,19 @@ def parse_resume(filename: str, data: bytes) -> str:
         except Exception:
             continue
     raise HTTPException(400, "Unsupported resume format. Use PDF, DOCX or TXT.")
+
+
+# Rough FX rates to RUB for cross-currency salary comparison.
+_FX = {"RUB": 1.0, "USD": 90.0, "EUR": 95.0, "GBP": 110.0, "ILS": 25.0, "SAR": 24.0,
+       "AED": 24.0, "CAD": 66.0, "AUD": 60.0, "PLN": 23.0, "INR": 1.1, "BRL": 18.0,
+       "MXN": 5.0, "NZD": 55.0, "SGD": 67.0, "ZAR": 5.0}
+
+def _to_rub(amount, currency):
+    try:
+        amount = float(amount)
+    except Exception:
+        return 0.0
+    return amount * _FX.get((currency or "RUB").upper(), 1.0)
 
 
 PROFILE_PROMPT = """Извлеки из резюме структурированный профиль кандидата.
@@ -211,23 +225,33 @@ async def match(
     if not candidates:
         candidates = ["manager"]
 
-    # Aggregate results across several query variants (don't stop at the first
-    # that returns anything — a broader/role-title query often has the best hits).
+    # Run several query variants IN PARALLEL; aggregate + de-dupe.
+    queries = candidates[:3]
+    remote_flag = str(remote_ok).lower() == "true"
     jobs, debug, seen_ids = [], {}, set()
-    for q in candidates[:4]:
-        qjobs, qdebug = providers.search_jobs(
-            keywords=q, location=location, country=country,
-            salary_min=sal, remote_ok=str(remote_ok).lower() == "true",
-            per_provider=15,
-        )
-        debug.update(qdebug)
-        for j in qjobs:
-            if j["id"] in seen_ids:
-                continue
-            seen_ids.add(j["id"])
-            jobs.append(j)
-        if len(jobs) >= 18:
-            break
+
+    def _q(q):
+        return providers.search_jobs(keywords=q, location=location, country=country,
+                                     salary_min=sal, remote_ok=remote_flag, per_provider=15)
+
+    with ThreadPoolExecutor(max_workers=max(1, len(queries))) as ex:
+        for qjobs, qdebug in ex.map(_q, queries):
+            debug.update(qdebug)
+            for j in qjobs:
+                if j["id"] in seen_ids:
+                    continue
+                seen_ids.add(j["id"])
+                jobs.append(j)
+
+    # Unified salary filter: convert to RUB, keep matches AND jobs with unstated salary.
+    if sal:
+        min_rub = _to_rub(sal, currency)
+        kept = []
+        for j in jobs:
+            top_sal = j.get("salary_max") or j.get("salary_min")
+            if not top_sal or _to_rub(top_sal, j.get("currency")) >= min_rub * 0.9:
+                kept.append(j)
+        jobs = kept
 
     if not jobs:
         return JSONResponse({"profile": profile, "jobs": [], "debug": debug,
