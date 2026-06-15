@@ -285,7 +285,11 @@ async def match(
         j["fit"] = r.get("fit", "")
         results.append(j)
 
+    pool_by_source = {}
+    for j in jobs:
+        pool_by_source[j.get("source", "?")] = pool_by_source.get(j.get("source", "?"), 0) + 1
     return {"profile": profile, "jobs": results, "debug": debug,
+            "pool_by_source": pool_by_source,
             "resume_excerpt": resume_text[:4000]}
 
 
