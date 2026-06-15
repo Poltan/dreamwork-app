@@ -305,6 +305,12 @@ async def match(
     except Exception:
         ranked = [{"id": j["id"], "score": None, "fit": ""} for j in jobs[:top]]
 
+    # The model sometimes returns an object instead of a JSON array — normalize.
+    if isinstance(ranked, dict):
+        ranked = next((v for v in ranked.values() if isinstance(v, list)), [])
+    if not isinstance(ranked, list):
+        ranked = []
+
     by_id = {j["id"]: j for j in jobs}
     results, used = [], set()
     for r in ranked[:top]:
