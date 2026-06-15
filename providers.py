@@ -194,21 +194,23 @@ def fetch_jsearch(keywords, location="", country=None, salary_min=None, limit=20
     key = os.getenv("RAPIDAPI_KEY")
     if not key:
         return []
-    q = keywords
-    if location:
-        q = f"{keywords} in {location}"
-    elif country:
-        q = f"{keywords} in {country}"
+    _cn = {"US": "United States", "GB": "United Kingdom", "CA": "Canada", "AU": "Australia",
+           "DE": "Germany", "FR": "France", "ES": "Spain", "IL": "Israel", "AE": "UAE",
+           "SA": "Saudi Arabia", "RU": "Russia", "IN": "India", "IT": "Italy", "NL": "Netherlands"}
+    place = location or _cn.get((country or "").upper(), country or "")
+    q = f"{keywords} in {place}" if place else keywords
     headers = {"X-RapidAPI-Key": key, "X-RapidAPI-Host": "jsearch.p.rapidapi.com"}
     try:
         r = requests.get("https://jsearch.p.rapidapi.com/search",
                          params={"query": q, "num_pages": 1, "page": 1},
-                         headers=headers, timeout=TIMEOUT)
+                         headers=headers, timeout=30)
         if r.status_code != 200:
-            return [{"_error": f"jsearch HTTP {r.status_code}"}]
+            return [{"_error": f"jsearch HTTP {r.status_code}: {r.text[:80]}"}]
         data = r.json()
     except Exception as e:
         return [{"_error": f"jsearch: {e}"}]
+    if isinstance(data, dict) and data.get("status") and data.get("status") != "OK":
+        return [{"_error": f"jsearch: {data.get('status')} {str(data.get('error') or data.get('message') or '')[:80]}"}]
     out = []
     for j in data.get("data", [])[:limit]:
         cur = (j.get("job_salary_currency") or "").upper()
