@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dreamwork — подбор вакансий по резюме</title>
+<style>
+  :root{
+    --bg:#0c0e1a; --card:#161930; --card2:#1c2040; --border:#2c3158; --text:#eef0ff; --muted:#9aa3cc;
+    --green:#34d399; --amber:#fbbf24; --gray:#9aa3cc; --g1:#7c3aed; --g2:#3b82f6; --g3:#ec4899;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.55;padding:0 20px 60px;max-width:920px;margin:0 auto}
+  .hero{margin:0 -20px 26px;padding:34px 28px 30px;background:linear-gradient(120deg,var(--g1),var(--g2) 55%,var(--g3));border-radius:0 0 24px 24px}
+  .hero h1{font-size:1.9rem;letter-spacing:-.5px}
+  .hero p{opacity:.9;font-size:.98rem;margin-top:6px;max-width:640px}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:22px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+  .field{flex:1;min-width:150px}
+  label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:5px}
+  input[type=text],input[type=number],select{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-family:inherit;font-size:.92rem}
+  .filebox{border:1.5px dashed var(--border);border-radius:12px;padding:18px;text-align:center;color:var(--muted);cursor:pointer;transition:border-color .15s}
+  .filebox:hover{border-color:var(--g2)}
+  .filebox.has{border-color:var(--green);color:var(--text)}
+  .check{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.9rem}
+  .btn{border:none;cursor:pointer;border-radius:12px;padding:11px 20px;font-size:.92rem;font-weight:700;font-family:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:6px;transition:opacity .15s}
+  .btn:hover{opacity:.88}
+  .btn-primary{background:linear-gradient(90deg,var(--g1),var(--g2));color:#fff}
+  .btn-ghost{background:var(--card2);color:var(--text);border:1px solid var(--border)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  h2{font-size:1.15rem;margin:24px 0 12px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 20px;margin-bottom:16px;transition:transform .15s, box-shadow .15s}
+  .card:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(60,70,220,.25)}
+  .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+  .title{font-size:1.06rem;font-weight:700}
+  .company{color:var(--muted);font-size:.9rem;margin-top:2px}
+  .src{font-size:.72rem;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:3px 9px;color:var(--muted);white-space:nowrap}
+  .meta{font-size:.84rem;color:var(--muted);margin-top:8px}
+  .salary{font-weight:700;margin-top:6px}
+  .salary.green{color:var(--green)} .salary.amber{color:var(--amber)} .salary.gray{color:var(--gray);font-weight:400}
+  .fit{font-size:.9rem;opacity:.95;margin:10px 0}
+  .score{display:inline-block;font-size:.74rem;background:linear-gradient(90deg,var(--g1),var(--g3));color:#fff;border-radius:10px;padding:2px 9px;margin-left:8px}
+  .actions{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+  .letter-box{display:none;margin-top:14px;background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:14px}
+  .letter-box.open{display:block}
+  textarea{width:100%;min-height:220px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:12px;font-family:inherit;font-size:.9rem;line-height:1.5;resize:vertical}
+  .lactions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .status{font-size:.85rem;color:var(--muted)}
+  .profile{background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:18px;font-size:.9rem}
+  .profile b{color:var(--text)}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:linear-gradient(90deg,var(--g1),var(--g2));color:#fff;padding:10px 22px;border-radius:14px;font-weight:700;font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .3s;z-index:99}
+  .toast.show{opacity:1}
+  .spinner{display:none;color:var(--muted);font-size:.92rem;margin:8px 0}
+  .lang-toggle{display:flex;gap:6px;margin-bottom:8px}
+  .lang-toggle button{font-size:.78rem;padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--muted);cursor:pointer}
+  .lang-toggle button.on{background:var(--g2);color:#fff;border-color:var(--g2)}
+  small.hint{color:var(--muted);font-size:.78rem}
+</style>
+</head>
+<body>
+<div class="hero">
+  <h1>🎯 Dreamwork</h1>
+  <p>Загрузите резюме и пожелания — мы подберём вакансии напрямую с сайтов работодателей по всему миру и напишем сопроводительное письмо под каждую.</p>
+</div>
+
+<div class="panel">
+  <div class="field" style="margin-bottom:14px">
+    <input type="file" id="file" accept=".pdf,.docx,.txt" style="display:none">
+    <div class="filebox" id="filebox" onclick="document.getElementById('file').click()">
+      📄 Перетащите или выберите резюме (PDF, DOCX, TXT)
+    </div>
+  </div>
+  <div class="row">
+    <div class="field"><label>Страна (необязательно — иначе поиск по всему миру)</label><input type="text" id="country" placeholder="оставьте пустым для глобального поиска"></div>
+    <div class="field"><label>Город / локация (необязательно)</label><input type="text" id="location" placeholder="Moscow / New York / Remote"></div>
+  </div>
+  <div class="row">
+    <div class="field"><label>Желаемая зарплата от</label><input type="number" id="salary" placeholder="например 150000"></div>
+    <div class="field"><label>Валюта</label>
+      <select id="currency"><option>RUB</option><option>USD</option><option>EUR</option><option>GBP</option><option>ILS</option><option>SAR</option><option>AED</option><option>CAD</option></select>
+    </div>
+    <div class="field" style="display:flex;align-items:flex-end">
+      <label class="check"><input type="checkbox" id="remote"> Готов(а) к удалёнке</label>
+    </div>
+  </div>
+  <button class="btn btn-primary" id="go" onclick="runMatch()">🔍 Найти вакансии</button>
+  <div class="spinner" id="spinner">⏳ Разбираю резюме и ищу вакансии…</div>
+  <div style="margin-top:8px"><small class="hint" id="apihint"></small></div>
+</div>
+
+<div id="profile"></div>
+<div id="results"></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// When served by the backend, same-origin. When opened as a file, hit local backend.
+const API = location.protocol.startsWith('http') ? '' : 'http://localhost:8000';
+let PROFILE = null, RESUME = '';
+
+const fileInput = document.getElementById('file');
+const filebox = document.getElementById('filebox');
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) { filebox.textContent = '✅ ' + fileInput.files[0].name; filebox.classList.add('has'); }
+});
+['dragover','dragleave','drop'].forEach(ev => filebox.addEventListener(ev, e => {
+  e.preventDefault(); if (ev==='drop' && e.dataTransfer.files[0]) { fileInput.files = e.dataTransfer.files;
+    filebox.textContent='✅ '+e.dataTransfer.files[0].name; filebox.classList.add('has'); }
+}));
+
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600);}
+function salaryClass(j){
+  const lo=j.salary_min; if(!j.salary) return 'gray';
+  if(lo && lo>=3000 && j.currency!=='RUB') return 'green';
+  if(lo && lo>=270000) return 'green';
+  return j.salary? 'amber':'gray';
+}
+
+async function copyText(text, ta){
+  try{ await navigator.clipboard.writeText(text); return true; }catch(e){}
+  try{ if(ta){ ta.focus(); ta.select(); const ok=document.execCommand('copy'); if(ok) return true; } }catch(e){}
+  try{ const t=document.createElement('textarea'); t.value=text; t.style.cssText='position:fixed;opacity:0';
+    document.body.appendChild(t); t.select(); const ok=document.execCommand('copy'); document.body.removeChild(t); return ok; }catch(e){ return false; }
+}
+
+async function runMatch(){
+  if(!fileInput.files[0]){ toast('Сначала выберите резюме'); return; }
+  const go=document.getElementById('go'), sp=document.getElementById('spinner');
+  go.disabled=true; sp.style.display='block';
+  document.getElementById('results').innerHTML=''; document.getElementById('profile').innerHTML='';
+  const fd=new FormData();
+  fd.append('resume', fileInput.files[0]);
+  fd.append('country', document.getElementById('country').value);
+  fd.append('location', document.getElementById('location').value);
+  fd.append('salary_min', document.getElementById('salary').value);
+  fd.append('currency', document.getElementById('currency').value);
+  fd.append('remote_ok', document.getElementById('remote').checked);
+  try{
+    const r=await fetch(API+'/api/match',{method:'POST',body:fd});
+    if(!r.ok){ const t=await r.text(); throw new Error(t || r.status); }
+    const data=await r.json();
+    PROFILE=data.profile; RESUME=data.resume_excerpt||'';
+    renderProfile(data.profile);
+    renderResults(data.jobs||[], data.note);
+  }catch(e){ toast('Ошибка: '+e.message); console.error(e); }
+  finally{ go.disabled=false; sp.style.display='none'; }
+}
+
+function renderProfile(p){
+  if(!p) return;
+  document.getElementById('profile').innerHTML =
+    `<div class="profile"><b>${p.headline||p.name||'Профиль'}</b> · ${p.seniority||''}<br>
+     ${(p.summary||'')}<br><small class="hint">Ищем по: ${(p.search_query||'')} · цели: ${(p.target_titles||[]).join(', ')}</small></div>`;
+}
+
+function renderResults(jobs, note){
+  const box=document.getElementById('results');
+  if(!jobs.length){ box.innerHTML=`<p class="status">${note||'Подходящих вакансий не найдено. Попробуйте изменить страну/зарплату.'}</p>`; return; }
+  box.innerHTML=`<h2>Подходящие вакансии (${jobs.length})</h2>`;
+  jobs.forEach(j=>box.appendChild(card(j)));
+}
+
+function el(h){const d=document.createElement('div');d.innerHTML=h.trim();return d.firstChild;}
+
+function card(j){
+  const sc=j.score!=null?`<span class="score">${j.score}% совпадение</span>`:'';
+  const c=el(`<div class="card">
+    <div class="card-top">
+      <div><div class="title">${j.title||''} ${sc}</div><div class="company">${j.company||''}</div></div>
+      <span class="src">${j.source||''}</span>
+    </div>
+    <div class="meta">📍 ${j.location||'—'} ${j.remote?'· 🌍 remote':''}</div>
+    <div class="salary ${salaryClass(j)}">${j.salary||'Зарплата не указана'}</div>
+    ${j.fit?`<div class="fit">${j.fit}</div>`:''}
+    <div class="actions">
+      <a class="btn btn-ghost" href="${j.url||'#'}" target="_blank">🔗 Вакансия</a>
+      <button class="btn btn-primary" data-a="letter">✍️ Написать письмо</button>
+      <button class="btn btn-primary" data-a="apply">🚀 Скопировать + отклик</button>
+    </div>
+    <div class="letter-box" data-box>
+      <div class="lang-toggle"><button data-lang="ru" class="on">RU</button><button data-lang="en">EN</button></div>
+      <div class="status" data-st></div>
+      <textarea data-ta placeholder="Сопроводительное письмо появится здесь…"></textarea>
+      <div class="lactions">
+        <button class="btn btn-ghost" data-a="copy">📋 Скопировать</button>
+        <button class="btn btn-ghost" data-a="regen">🔄 Перегенерировать</button>
+      </div>
+      <small class="hint">Текст можно редактировать. «Скопировать + отклик» откроет страницу работодателя — вставьте письмо (Ctrl+V).</small>
+    </div>
+  </div>`);
+
+  const box=c.querySelector('[data-box]'), ta=c.querySelector('[data-ta]'), st=c.querySelector('[data-st]');
+  let lang='ru';
+  c.querySelectorAll('[data-lang]').forEach(b=>b.onclick=()=>{
+    lang=b.dataset.lang; c.querySelectorAll('[data-lang]').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  });
+
+  async function gen(force){
+    box.classList.add('open');
+    if(ta.value && !force){ st.textContent='✅ Письмо готово — отредактируйте'; return; }
+    st.textContent='⏳ Пишу письмо…'; ta.value='';
+    try{
+      const r=await fetch(API+'/api/letter',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({job:j, profile:PROFILE, resume_text:RESUME, lang})});
+      if(!r.ok) throw new Error(await r.text());
+      const d=await r.json(); ta.value=(d.letter||'').trim(); st.textContent='✅ Готово — отредактируйте при необходимости';
+    }catch(e){ st.textContent='⚠️ Не удалось сгенерировать: '+e.message; }
+  }
+
+  c.addEventListener('click', async ev=>{
+    const a=ev.target?.dataset?.a; if(!a) return;
+    if(a==='letter') gen(false);
+    if(a==='regen') gen(true);
+    if(a==='copy'){ if(!ta.value){toast('Сначала сгенерируйте письмо');return;}
+      toast(await copyText(ta.value, ta)?'Письмо скопировано':'Выделено — нажмите Ctrl+C'); }
+    if(a==='apply'){ if(!ta.value){ await gen(false); }
+      await copyText(ta.value, ta); window.open(j.url||'#','_blank');
+      toast('Письмо в буфере — вставьте в отклик (Ctrl+V)'); }
+  });
+  return c;
+}
+
+// health hint
+fetch(API+'/api/health').then(r=>r.json()).then(h=>{
+  const on=[]; if(h.keys.anthropic)on.push('AI'); if(h.keys.jooble)on.push('Jooble'); if(h.keys.adzuna)on.push('Adzuna');
+  document.getElementById('apihint').textContent='Подключено: '+[...on,'hh.ru','Remotive'].join(', ')+
+    (h.keys.anthropic?'':' · ⚠️ не задан ANTHROPIC_API_KEY на сервере');
+}).catch(()=>{ document.getElementById('apihint').textContent='⚠️ Бэкенд не отвечает. Запустите сервер (uvicorn) на :8000.'; });
+</script>
+</body>
+</html>
