@@ -230,15 +230,17 @@ def fetch_jsearch(keywords, location="", country=None, salary_min=None, limit=20
 
 
 def _ats_fetch(ats, slug):
-    """Return raw jobs [{_id,title,location,url,desc}] from a company's ATS board."""
+    """Return raw jobs [{_id,title,location,url,desc}] from a company's ATS board.
+    Kept lightweight (no huge descriptions, capped count) to stay within memory."""
     if ats == "greenhouse":
+        # No content=true -> small payload (titles/links only). Filter on title.
         r = requests.get(f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs",
-                         params={"content": "true"}, headers=UA, timeout=TIMEOUT)
+                         headers=UA, timeout=TIMEOUT)
         r.raise_for_status()
         return [{"_id": j.get("id"), "title": j.get("title", ""),
                  "location": (j.get("location") or {}).get("name", ""),
-                 "url": j.get("absolute_url", ""), "desc": _clean(j.get("content", ""))}
-                for j in r.json().get("jobs", [])]
+                 "url": j.get("absolute_url", ""), "desc": ""}
+                for j in (r.json().get("jobs", []) or [])[:200]]
     if ats == "lever":
         r = requests.get(f"https://api.lever.co/v0/postings/{slug}",
                          params={"mode": "json"}, headers=UA, timeout=TIMEOUT)
@@ -246,15 +248,15 @@ def _ats_fetch(ats, slug):
         return [{"_id": j.get("id"), "title": j.get("text", ""),
                  "location": (j.get("categories") or {}).get("location", "") or "",
                  "url": j.get("hostedUrl", ""),
-                 "desc": _clean(j.get("descriptionPlain") or j.get("description") or "")}
-                for j in r.json()]
+                 "desc": _clean(j.get("descriptionPlain") or "")[:500]}
+                for j in (r.json() or [])[:150]]
     if ats == "ashby":
         r = requests.get(f"https://api.ashbyhq.com/posting-api/job-board/{slug}", headers=UA, timeout=TIMEOUT)
         r.raise_for_status()
         return [{"_id": j.get("id"), "title": j.get("title", ""), "location": j.get("location", ""),
                  "url": j.get("jobUrl") or j.get("applyUrl") or "",
-                 "desc": _clean(j.get("descriptionPlain") or "")}
-                for j in r.json().get("jobs", [])]
+                 "desc": _clean(j.get("descriptionPlain") or "")[:500]}
+                for j in (r.json().get("jobs", []) or [])[:150]]
     return []
 
 
@@ -281,7 +283,7 @@ def fetch_company_ats(keywords, location="", country=None, salary_min=None, limi
             return ats, slug, []
 
     out = []
-    with ThreadPoolExecutor(max_workers=min(12, len(entries))) as ex:
+    with ThreadPoolExecutor(max_workers=min(6, len(entries))) as ex:
         for ats, slug, jobs in ex.map(_one, entries):
             per = 0
             for j in jobs:
