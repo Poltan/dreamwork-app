@@ -200,7 +200,9 @@ def search_jobs(keywords, location="", country="", salary_min=None, remote_ok=Fa
         providers.append((f"adzuna:{cc}", lambda cc=cc, loc=loc: fetch_adzuna(keywords, loc, cc, salary_min, per_provider)))
     jloc = "" if is_global else location
     providers.append(("jooble", lambda: fetch_jooble(keywords, jloc, code, salary_min, per_provider)))
-    if remote_ok or is_global:
+    # Remotive (remote roles) as a baseline for global, remote, OR any non-RU country
+    # (so international searches return something even before an Adzuna key is added).
+    if remote_ok or is_global or (code and code != "RU"):
         providers.append(("remotive", lambda: fetch_remotive(keywords, location, code, salary_min, per_provider)))
     jobs, debug = [], {}
     def _run(item):
