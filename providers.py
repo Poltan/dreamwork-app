@@ -110,6 +110,34 @@ def fetch_remotive(keywords, location="", country=None, salary_min=None, limit=2
                     "source": "Remotive"})
     return out
 
+def fetch_trudvsem(keywords, location="", country=None, salary_min=None, limit=20):
+    # «Работа России» (госпортал) — открытый API, без ключа и без Cloudflare.
+    url = "https://opendata.trudvsem.ru/api/v1/vacancies"
+    params = {"text": keywords, "limit": min(limit, 100), "offset": 0}
+    try:
+        r = requests.get(url, params=params, headers=UA, timeout=TIMEOUT)
+        if r.status_code != 200:
+            return [{"_error": f"trudvsem HTTP {r.status_code}"}]
+        data = r.json()
+    except Exception as e:
+        return [{"_error": f"trudvsem: {e}"}]
+    out = []
+    vacs = ((data.get("results") or {}).get("vacancies")) or []
+    for item in vacs[:limit]:
+        v = item.get("vacancy") or {}
+        sf, st = v.get("salary_min"), v.get("salary_max")
+        if salary_min and (sf or 0) and sf < salary_min:
+            continue
+        out.append({"id": _hash_id("trudvsem", v.get("id")),
+                    "title": _clean(v.get("job-name")),
+                    "company": _clean((v.get("company") or {}).get("name")),
+                    "location": _clean((v.get("region") or {}).get("name")),
+                    "country": "RU", "salary_min": sf, "salary_max": st, "currency": "RUB",
+                    "salary": _fmt_salary(sf, st, "RUB"),
+                    "remote": False, "url": v.get("vac_url"),
+                    "description": _clean(v.get("duty"))[:1500], "source": "Trudvsem"})
+    return out
+
 COUNTRY_CODE = {"russia":"RU","россия":"RU","рф":"RU","usa":"US","united states":"US","сша":"US","america":"US",
                 "canada":"CA","канада":"CA","uk":"GB","united kingdom":"GB","великобритания":"GB","england":"GB",
                 "israel":"IL","израиль":"IL","saudi arabia":"SA","саудовская аравия":"SA","ksa":"SA","uae":"AE",
@@ -124,35 +152,4 @@ GLOBAL_ADZUNA_MARKETS = ["us", "gb", "ca", "au"]
 
 def search_jobs(keywords, location="", country="", salary_min=None, remote_ok=False, per_provider=20):
     code = normalize_country(country)
-    is_global = not code
-    providers = []
-    if code == "RU":
-        providers.append(("hh", lambda: fetch_hh(keywords, location, code, salary_min, per_provider)))
-    adzuna_targets = []
-    if code and code.lower() in ADZUNA_COUNTRIES:
-        adzuna_targets = [code.lower()]
-    elif is_global:
-        adzuna_targets = GLOBAL_ADZUNA_MARKETS
-    for cc in adzuna_targets:
-        loc = "" if is_global else location
-        providers.append((f"adzuna:{cc}", lambda cc=cc, loc=loc: fetch_adzuna(keywords, loc, cc, salary_min, per_provider)))
-    jloc = "" if is_global else location
-    providers.append(("jooble", lambda: fetch_jooble(keywords, jloc, code, salary_min, per_provider)))
-    if remote_ok or is_global:
-        providers.append(("remotive", lambda: fetch_remotive(keywords, location, code, salary_min, per_provider)))
-    jobs, debug = [], {}
-    for name, fn in providers:
-        try:
-            res = fn()
-        except Exception as e:
-            debug[name] = f"exception: {e}"; continue
-        errs = [r["_error"] for r in res if isinstance(r, dict) and r.get("_error")]
-        clean = [r for r in res if not (isinstance(r, dict) and r.get("_error"))]
-        debug[name] = errs[0] if errs else f"{len(clean)} jobs"
-        jobs.extend(clean)
-    seen, deduped = set(), []
-    for j in jobs:
-        sig = (j.get("title","").lower(), j.get("company","").lower())
-        if sig in seen: continue
-        seen.add(sig); deduped.append(j)
-    return deduped, debug
+    is_glo
