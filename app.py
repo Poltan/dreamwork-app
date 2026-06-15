@@ -194,6 +194,28 @@ def health():
     }
 
 
+@app.get("/api/proxytest")
+def proxytest():
+    import requests as _rq
+    u = os.getenv("PROXY_URL")
+    px = {"http": u, "https": u} if u else None
+    out = {"proxy_set": bool(u)}
+    try:
+        r = _rq.get("https://api.ipify.org?format=json", proxies=px, timeout=25)
+        out["egress_ip"] = r.json().get("ip")
+    except Exception as e:
+        out["ip_error"] = str(e)[:200]
+    try:
+        r2 = _rq.get("https://api.hh.ru/vacancies", params={"text": "менеджер", "per_page": 1},
+                     proxies=px, timeout=30,
+                     headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"})
+        out["hh_status"] = r2.status_code
+        out["hh_body"] = r2.text[:150]
+    except Exception as e:
+        out["hh_error"] = str(e)[:200]
+    return out
+
+
 @app.post("/api/match")
 async def match(
     resume: UploadFile = File(...),
