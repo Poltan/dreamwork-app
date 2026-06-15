@@ -186,6 +186,8 @@ def health():
             "superjob": bool(os.getenv("SUPERJOB_KEY")),
             "hh_token": bool(os.getenv("HH_TOKEN")),
             "scraper": bool(os.getenv("SCRAPER_API_KEY")),
+            "jsearch": bool(os.getenv("RAPIDAPI_KEY")),
+            "company_ats": bool(os.getenv("COMPANY_ATS")),
         },
         "always_on": ["hh.ru", "Remotive", "Trudvsem"],
     }

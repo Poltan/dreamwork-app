@@ -189,6 +189,106 @@ def fetch_superjob(keywords, location="", country=None, salary_min=None, limit=2
                     "source": "SuperJob"})
     return out
 
+def fetch_jsearch(keywords, location="", country=None, salary_min=None, limit=20):
+    # JSearch (RapidAPI) = Google for Jobs: вакансии с карьерных страниц компаний и досок.
+    key = os.getenv("RAPIDAPI_KEY")
+    if not key:
+        return []
+    q = keywords
+    if location:
+        q = f"{keywords} in {location}"
+    elif country:
+        q = f"{keywords} in {country}"
+    headers = {"X-RapidAPI-Key": key, "X-RapidAPI-Host": "jsearch.p.rapidapi.com"}
+    try:
+        r = requests.get("https://jsearch.p.rapidapi.com/search",
+                         params={"query": q, "num_pages": 1, "page": 1},
+                         headers=headers, timeout=TIMEOUT)
+        if r.status_code != 200:
+            return [{"_error": f"jsearch HTTP {r.status_code}"}]
+        data = r.json()
+    except Exception as e:
+        return [{"_error": f"jsearch: {e}"}]
+    out = []
+    for j in data.get("data", [])[:limit]:
+        cur = (j.get("job_salary_currency") or "").upper()
+        loc = ", ".join([x for x in [j.get("job_city"), j.get("job_country")] if x])
+        out.append({"id": _hash_id("jsearch", j.get("job_id")),
+                    "title": _clean(j.get("job_title")),
+                    "company": _clean(j.get("employer_name")),
+                    "location": _clean(loc) or "—", "country": (j.get("job_country") or "").upper()[:2],
+                    "salary_min": j.get("job_min_salary"), "salary_max": j.get("job_max_salary"),
+                    "currency": cur,
+                    "salary": _fmt_salary(j.get("job_min_salary"), j.get("job_max_salary"), cur),
+                    "remote": bool(j.get("job_is_remote")),
+                    "url": j.get("job_apply_link") or j.get("job_google_link"),
+                    "description": _clean(j.get("job_description"))[:1500],
+                    "source": _clean(j.get("job_publisher")) or "Google Jobs"})
+    return out
+
+
+def _ats_fetch(ats, slug):
+    """Return raw jobs [{_id,title,location,url,desc}] from a company's ATS board."""
+    if ats == "greenhouse":
+        r = requests.get(f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs",
+                         params={"content": "true"}, headers=UA, timeout=TIMEOUT)
+        r.raise_for_status()
+        return [{"_id": j.get("id"), "title": j.get("title", ""),
+                 "location": (j.get("location") or {}).get("name", ""),
+                 "url": j.get("absolute_url", ""), "desc": _clean(j.get("content", ""))}
+                for j in r.json().get("jobs", [])]
+    if ats == "lever":
+        r = requests.get(f"https://api.lever.co/v0/postings/{slug}",
+                         params={"mode": "json"}, headers=UA, timeout=TIMEOUT)
+        r.raise_for_status()
+        return [{"_id": j.get("id"), "title": j.get("text", ""),
+                 "location": (j.get("categories") or {}).get("location", "") or "",
+                 "url": j.get("hostedUrl", ""),
+                 "desc": _clean(j.get("descriptionPlain") or j.get("description") or "")}
+                for j in r.json()]
+    if ats == "ashby":
+        r = requests.get(f"https://api.ashbyhq.com/posting-api/job-board/{slug}", headers=UA, timeout=TIMEOUT)
+        r.raise_for_status()
+        return [{"_id": j.get("id"), "title": j.get("title", ""), "location": j.get("location", ""),
+                 "url": j.get("jobUrl") or j.get("applyUrl") or "",
+                 "desc": _clean(j.get("descriptionPlain") or "")}
+                for j in r.json().get("jobs", [])]
+    return []
+
+
+def fetch_company_ats(keywords, location="", country=None, salary_min=None, limit=20):
+    # Прямой опрос карьерных систем компаний. COMPANY_ATS="greenhouse:stripe,lever:netflix,ashby:ramp"
+    spec = os.getenv("COMPANY_ATS", "")
+    if not spec.strip():
+        return []
+    kw = [w for w in keywords.lower().split() if len(w) > 2]
+    out = []
+    for entry in spec.split(","):
+        entry = entry.strip()
+        if ":" not in entry:
+            continue
+        ats, slug = entry.split(":", 1)
+        ats, slug = ats.strip().lower(), slug.strip()
+        try:
+            jobs = _ats_fetch(ats, slug)
+        except Exception:
+            continue
+        for j in jobs:
+            text = (str(j.get("title")) + " " + str(j.get("desc"))).lower()
+            if kw and not any(w in text for w in kw):
+                continue
+            out.append({"id": _hash_id("ats", ats, j.get("_id") or j.get("url")),
+                        "title": _clean(j.get("title")), "company": slug.capitalize(),
+                        "location": _clean(j.get("location")) or "—", "country": (country or "").upper(),
+                        "salary_min": None, "salary_max": None, "currency": "", "salary": None,
+                        "remote": "remote" in text or "удал" in text,
+                        "url": j.get("url"), "description": (j.get("desc") or "")[:1500],
+                        "source": "Company: " + slug})
+            if len(out) >= limit:
+                return out
+    return out
+
+
 COUNTRY_CODE = {"russia":"RU","россия":"RU","рф":"RU","usa":"US","united states":"US","сша":"US","america":"US",
                 "canada":"CA","канада":"CA","uk":"GB","united kingdom":"GB","великобритания":"GB","england":"GB",
                 "israel":"IL","израиль":"IL","saudi arabia":"SA","саудовская аравия":"SA","ksa":"SA","uae":"AE",
@@ -223,6 +323,9 @@ def search_jobs(keywords, location="", country="", salary_min=None, remote_ok=Fa
     # (so international searches return something even before an Adzuna key is added).
     if remote_ok or is_global or (code and code != "RU"):
         providers.append(("remotive", lambda: fetch_remotive(keywords, location, code, salary_min, per_provider)))
+    # Company-direct sources (no-op until their keys/config are set):
+    providers.append(("jsearch", lambda: fetch_jsearch(keywords, location, code, salary_min, per_provider)))
+    providers.append(("company_ats", lambda: fetch_company_ats(keywords, location, code, salary_min, per_provider)))
     jobs, debug = [], {}
     def _run(item):
         name, fn = item
