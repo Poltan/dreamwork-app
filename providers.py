@@ -139,6 +139,37 @@ def fetch_trudvsem(keywords, location="", country=None, salary_min=None, limit=2
                     "description": _clean(v.get("duty"))[:1500], "source": "Trudvsem"})
     return out
 
+def fetch_superjob(keywords, location="", country=None, salary_min=None, limit=20):
+    # SuperJob API. Нужен ключ (X-Api-App-Id), выдаётся мгновенно на api.superjob.ru.
+    key = os.getenv("SUPERJOB_KEY")
+    if not key:
+        return []
+    headers = dict(UA); headers["X-Api-App-Id"] = key
+    params = {"keyword": keywords, "count": min(limit, 40)}
+    if location:
+        params["town"] = location
+    try:
+        r = requests.get("https://api.superjob.ru/2.0/vacancies/", params=params, headers=headers, timeout=TIMEOUT)
+        if r.status_code != 200:
+            return [{"_error": f"superjob HTTP {r.status_code}"}]
+        data = r.json()
+    except Exception as e:
+        return [{"_error": f"superjob: {e}"}]
+    out = []
+    for v in data.get("objects", [])[:limit]:
+        pf, pt = v.get("payment_from") or None, v.get("payment_to") or None
+        out.append({"id": _hash_id("superjob", v.get("id")),
+                    "title": _clean(v.get("profession")),
+                    "company": _clean(v.get("firm_name")),
+                    "location": _clean((v.get("town") or {}).get("title")),
+                    "country": "RU", "salary_min": pf, "salary_max": pt, "currency": "RUB",
+                    "salary": _fmt_salary(pf, pt, "RUB"),
+                    "remote": bool(v.get("place_of_work") and "удал" in str(v.get("place_of_work")).lower()),
+                    "url": v.get("link"),
+                    "description": _clean(v.get("candidat") or v.get("work") or v.get("vacancyRichText"))[:1500],
+                    "source": "SuperJob"})
+    return out
+
 COUNTRY_CODE = {"russia":"RU","россия":"RU","рф":"RU","usa":"US","united states":"US","сша":"US","america":"US",
                 "canada":"CA","канада":"CA","uk":"GB","united kingdom":"GB","великобритания":"GB","england":"GB",
                 "israel":"IL","израиль":"IL","saudi arabia":"SA","саудовская аравия":"SA","ksa":"SA","uae":"AE",
@@ -157,6 +188,7 @@ def search_jobs(keywords, location="", country="", salary_min=None, remote_ok=Fa
     providers = []
     if code == "RU":
         providers.append(("trudvsem", lambda: fetch_trudvsem(keywords, location, code, salary_min, per_provider)))
+        providers.append(("superjob", lambda: fetch_superjob(keywords, location, code, salary_min, per_provider)))
         providers.append(("hh", lambda: fetch_hh(keywords, location, code, salary_min, per_provider)))
     adzuna_targets = []
     if code and code.lower() in ADZUNA_COUNTRIES:
