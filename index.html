@@ -153,11 +153,24 @@ function renderProfile(p){
      ${(p.summary||'')}<br><small class="hint">Ищем по: ${(p.search_query||'')} · цели: ${(p.target_titles||[]).join(', ')}</small></div>`;
 }
 
+let _allJobs=[], _shown=0;
+const PAGE=5;
 function renderResults(jobs, note){
   const box=document.getElementById('results');
   if(!jobs.length){ box.innerHTML=`<p class="status">${note||'Подходящих вакансий не найдено. Попробуйте изменить страну/зарплату.'}</p>`; return; }
-  box.innerHTML=`<h2>Подходящие вакансии (${jobs.length})</h2>`;
-  jobs.forEach(j=>box.appendChild(card(j)));
+  _allJobs=jobs; _shown=0;
+  box.innerHTML=`<h2>Подходящие вакансии (${jobs.length})</h2><div id="cards"></div><div id="morewrap" style="text-align:center;margin:10px 0"></div>`;
+  showMore();
+}
+function showMore(){
+  const cards=document.getElementById('cards');
+  _allJobs.slice(_shown, _shown+PAGE).forEach(j=>cards.appendChild(card(j)));
+  _shown=Math.min(_shown+PAGE, _allJobs.length);
+  const mw=document.getElementById('morewrap');
+  if(_shown<_allJobs.length){
+    mw.innerHTML=`<button class="btn btn-ghost" id="moreBtn">Показать ещё (${_allJobs.length-_shown})</button>`;
+    document.getElementById('moreBtn').addEventListener('click', showMore);
+  } else { mw.innerHTML=''; }
 }
 
 function el(h){const d=document.createElement('div');d.innerHTML=h.trim();return d.firstChild;}

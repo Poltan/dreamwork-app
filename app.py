@@ -199,9 +199,9 @@ async def match(
     salary_min: str = Form(""),
     currency: str = Form(""),
     remote_ok: str = Form("false"),
-    top: int = Form(5),
+    top: int = Form(10),
 ):
-    top = max(1, min(int(top), 5))
+    top = max(1, min(int(top), 12))
 
     data = await resume.read()
     if not data:
@@ -304,14 +304,26 @@ async def match(
         ranked = [{"id": j["id"], "score": None, "fit": ""} for j in jobs[:top]]
 
     by_id = {j["id"]: j for j in jobs}
-    results = []
+    results, used = [], set()
     for r in ranked[:top]:
         j = by_id.get(r.get("id"))
-        if not j:
+        if not j or j["id"] in used:
             continue
+        used.add(j["id"])
         j = dict(j)
         j["score"] = r.get("score")
         j["fit"] = r.get("fit", "")
+        results.append(j)
+    # Append remaining pool jobs (unranked extras) for the "show more" button.
+    for j in jobs:
+        if len(results) >= 25:
+            break
+        if j["id"] in used:
+            continue
+        used.add(j["id"])
+        j = dict(j)
+        j["score"] = None
+        j["fit"] = ""
         results.append(j)
 
     pool_by_source = {}
