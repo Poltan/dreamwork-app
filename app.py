@@ -31,7 +31,12 @@ except Exception:
 import providers
 
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
-FRONTEND = pathlib.Path(__file__).resolve().parent.parent / "frontend" / "index.html"
+_HERE = pathlib.Path(__file__).resolve().parent
+# Works for both layouts: flat (index.html next to app.py, used on the host/Render)
+# and structured (../frontend/index.html, used locally).
+FRONTEND = _HERE / "index.html"
+if not FRONTEND.exists():
+    FRONTEND = _HERE.parent / "frontend" / "index.html"
 
 app = FastAPI(title="Dreamwork API", version="0.1")
 app.add_middleware(
