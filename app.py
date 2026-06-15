@@ -31,7 +31,7 @@ except Exception:
 import providers
 
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
-FRONTEND = pathlib.Path(__file__).resolve().parent / "index.html"
+FRONTEND = pathlib.Path(__file__).resolve().parent.parent / "frontend" / "index.html"
 
 app = FastAPI(title="Dreamwork API", version="0.1")
 app.add_middleware(
@@ -206,15 +206,22 @@ async def match(
     if not candidates:
         candidates = ["manager"]
 
-    jobs, debug, used_query = [], {}, None
-    for q in candidates:
-        jobs, debug = providers.search_jobs(
+    # Aggregate results across several query variants (don't stop at the first
+    # that returns anything — a broader/role-title query often has the best hits).
+    jobs, debug, seen_ids = [], {}, set()
+    for q in candidates[:4]:
+        qjobs, qdebug = providers.search_jobs(
             keywords=q, location=location, country=country,
             salary_min=sal, remote_ok=str(remote_ok).lower() == "true",
-            per_provider=20,
+            per_provider=15,
         )
-        used_query = q
-        if jobs:
+        debug.update(qdebug)
+        for j in qjobs:
+            if j["id"] in seen_ids:
+                continue
+            seen_ids.add(j["id"])
+            jobs.append(j)
+        if len(jobs) >= 18:
             break
 
     if not jobs:
