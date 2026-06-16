@@ -54,6 +54,19 @@ app.add_middleware(
     CORSMiddleware, allow_origins=_ORIGINS, allow_methods=["*"], allow_headers=["*"],
 )
 
+# Basic security headers on every response.
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    resp = await call_next(request)
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return resp
+
+# Expose internal debug fields only when explicitly enabled.
+DEBUG_API = os.getenv("DEBUG_API") == "1"
+
 # ---- Lightweight in-memory rate limiting (per client IP) -------------------
 # Protects the paid endpoints (Anthropic / provider quotas) from abuse. Single
 # instance => in-memory is enough; resets on restart.
@@ -121,25 +134,33 @@ def _extract_json(text):
     return json.loads(text)
 
 
+# Caps to keep parsing of untrusted files bounded (anti zip-bomb / huge-doc DoS).
+MAX_PDF_PAGES = 30
+MAX_DOCX_PARAS = 4000
+MAX_TEXT_CHARS = 60000
+
 def parse_resume(filename: str, data: bytes) -> str:
     name = (filename or "").lower()
     if name.endswith(".pdf"):
         try:
             import pdfplumber
             with pdfplumber.open(io.BytesIO(data)) as pdf:
-                return "\n".join((p.extract_text() or "") for p in pdf.pages)
+                pages = pdf.pages[:MAX_PDF_PAGES]
+                text = "\n".join((p.extract_text() or "") for p in pages)
         except Exception as e:
-            raise HTTPException(400, f"Could not read PDF: {e}")
+            raise HTTPException(400, "Could not read PDF.")
+        return text[:MAX_TEXT_CHARS]
     if name.endswith(".docx"):
         try:
             import docx
             d = docx.Document(io.BytesIO(data))
-            return "\n".join(p.text for p in d.paragraphs)
+            text = "\n".join(p.text for p in d.paragraphs[:MAX_DOCX_PARAS])
         except Exception as e:
-            raise HTTPException(400, f"Could not read DOCX: {e}")
+            raise HTTPException(400, "Could not read DOCX.")
+        return text[:MAX_TEXT_CHARS]
     for enc in ("utf-8", "cp1251", "latin-1"):
         try:
-            return data.decode(enc)
+            return data.decode(enc)[:MAX_TEXT_CHARS]
         except Exception:
             continue
     raise HTTPException(400, "Unsupported resume format. Use PDF, DOCX or TXT.")
@@ -362,9 +383,11 @@ async def match(
             jobs = kept
 
     if not jobs:
-        return JSONResponse({"profile": profile, "jobs": [], "debug": debug,
-                             "tried": candidates,
-                             "note": "Провайдеры не вернули вакансий по этому запросу."})
+        empty = {"profile": profile, "jobs": [],
+                 "note": "Провайдеры не вернули вакансий по этому запросу."}
+        if DEBUG_API:
+            empty["debug"] = debug; empty["tried"] = candidates
+        return JSONResponse(empty)
 
     trimmed = [{"id": j["id"], "title": j["title"], "company": j["company"],
                 "location": j["location"], "salary": j["salary"],
@@ -409,12 +432,14 @@ async def match(
         j["fit"] = ""
         results.append(j)
 
-    pool_by_source = {}
-    for j in jobs:
-        pool_by_source[j.get("source", "?")] = pool_by_source.get(j.get("source", "?"), 0) + 1
-    return {"profile": profile, "jobs": results, "debug": debug,
-            "pool_by_source": pool_by_source,
-            "resume_excerpt": resume_text[:4000]}
+    out = {"profile": profile, "jobs": results,
+           "resume_excerpt": resume_text[:4000]}
+    if DEBUG_API:
+        out["debug"] = debug
+        out["pool_by_source"] = {}
+        for j in jobs:
+            out["pool_by_source"][j.get("source", "?")] = out["pool_by_source"].get(j.get("source", "?"), 0) + 1
+    return out
 
 
 @app.post("/api/letter")

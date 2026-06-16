@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DreamWork — работа мечты по резюме</title>
+<meta name="description" id="metadesc" content="DreamWork — загрузи резюме и получи подходящие вакансии напрямую с сайтов работодателей по всему миру плюс готовое сопроводительное письмо. Без VPN, на русском и английском.">
+<meta property="og:title" content="DreamWork">
+<meta property="og:description" content="Загрузи резюме — получи вакансии напрямую от работодателей и готовое сопроводительное письмо.">
+<meta property="og:type" content="website">
+<meta name="robots" content="index,follow">
 <style>
   :root{
     --bg:#f6f6fb; --surface:#ffffff; --ink:#15172b; --muted:#5b6079; --line:#e7e7f0;
@@ -77,6 +82,26 @@
   .lang-toggle button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
   small.hint{color:var(--muted);font-size:.78rem;display:block;margin-top:8px}
   .status-msg{color:var(--muted);font-size:.9rem;margin-top:8px}
+  .consent{display:flex;align-items:flex-start;gap:8px;font-size:.8rem;color:var(--muted);margin:2px 0 12px;cursor:pointer}
+  .consent input{margin-top:2px}
+  .note{font-size:.78rem;color:var(--muted);text-align:center;margin-top:8px}
+  .section{margin:46px 0}
+  .section h2{font-size:1.3rem;margin-bottom:16px}
+  .trust-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+  .trust-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow)}
+  .trust-card .ic{width:34px;height:34px;border-radius:9px;background:var(--accent-l);color:var(--accent-d);display:flex;align-items:center;justify-content:center;font-size:1.1rem;margin-bottom:10px}
+  .trust-card h3{font-size:1rem;margin-bottom:6px}
+  .trust-card p{font-size:.88rem;color:var(--muted)}
+  details.faq{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-bottom:8px}
+  details.faq summary{cursor:pointer;font-weight:600;font-size:.95rem;list-style:none}
+  details.faq summary::-webkit-details-marker{display:none}
+  details.faq summary::before{content:"+";color:var(--accent);font-weight:700;margin-right:8px}
+  details.faq[open] summary::before{content:"–"}
+  details.faq .a{font-size:.9rem;color:var(--muted);margin-top:8px;line-height:1.6}
+  footer a{color:var(--accent);text-decoration:none;cursor:pointer}
+  footer .legal{margin-top:12px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+  footer details{margin:10px auto 0;max-width:620px;text-align:left}
+  footer details .a{font-size:.82rem;color:var(--muted);margin-top:6px;line-height:1.6}
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:11px 22px;border-radius:12px;font-weight:600;font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .3s;z-index:99}
   .toast.show{opacity:1}
   footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:.82rem;text-align:center}
@@ -124,16 +149,48 @@
       <div class="row">
         <label class="check"><input type="checkbox" id="remote"> <span data-i="form_remote"></span></label>
       </div>
+      <label class="consent"><input type="checkbox" id="consent"> <span data-i="consent"></span></label>
       <button class="btn btn-primary" id="go" onclick="runMatch()" data-i="btn_find"></button>
+      <div class="note" data-i="cta_note"></div>
       <div class="spinner" id="spinner" data-i="spinner"></div>
       <small class="apihint" id="apihint"></small>
+      <small class="hint" style="text-align:center" data-i="privacy_note"></small>
     </div>
   </section>
 
   <div id="profile"></div>
   <div id="results"></div>
 
-  <footer data-i="footer"></footer>
+  <section class="section">
+    <h2 data-i="trust_title"></h2>
+    <div class="trust-grid">
+      <div class="trust-card"><div class="ic">◆</div><h3 data-i="trust_1_h"></h3><p data-i="trust_1_b"></p></div>
+      <div class="trust-card"><div class="ic">⚡</div><h3 data-i="trust_2_h"></h3><p data-i="trust_2_b"></p></div>
+      <div class="trust-card"><div class="ic">✍</div><h3 data-i="trust_3_h"></h3><p data-i="trust_3_b"></p></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2 data-i="faq_title"></h2>
+    <details class="faq"><summary data-i="q1"></summary><div class="a" data-i="a1"></div></details>
+    <details class="faq"><summary data-i="q2"></summary><div class="a" data-i="a2"></div></details>
+    <details class="faq"><summary data-i="q3"></summary><div class="a" data-i="a3"></div></details>
+    <details class="faq"><summary data-i="q4"></summary><div class="a" data-i="a4"></div></details>
+    <details class="faq"><summary data-i="q5"></summary><div class="a" data-i="a5"></div></details>
+    <details class="faq"><summary data-i="q6"></summary><div class="a" data-i="a6"></div></details>
+  </section>
+
+  <footer>
+    <div data-i="footer"></div>
+    <div class="legal">
+      <a href="mailto:nlitovkin@gmail.com" data-i="footer_contact"></a>
+      <a id="lnk-privacy" data-i="footer_privacy"></a>
+      <a id="lnk-terms" data-i="footer_terms"></a>
+    </div>
+    <details id="d-privacy"><summary data-i="footer_privacy"></summary><div class="a" data-i="privacy_body"></div></details>
+    <details id="d-terms"><summary data-i="footer_terms"></summary><div class="a" data-i="terms_body"></div></details>
+    <div class="legal" style="margin-top:10px"><small class="hint" data-i="footer_disclaimer"></small></div>
+  </footer>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -190,7 +247,38 @@ const T = {
     err:"Ошибка: ",
     footer:"DreamWork — подбор вакансий и сопроводительные письма с ИИ.",
     connected:"Подключено: ",
-    backend_down:"⚠️ Бэкенд не отвечает."
+    backend_down:"⚠️ Бэкенд не отвечает.",
+    meta_desc:"DreamWork — загрузи резюме и получи подходящие вакансии напрямую с сайтов работодателей по всему миру плюс готовое сопроводительное письмо. Без VPN, на русском и английском.",
+    consent:"Соглашаюсь на обработку резюме для подбора вакансий и генерации письма",
+    consent_required:"Отметь согласие на обработку резюме",
+    privacy_note:"Резюме используется только для подбора вакансий и письма. Мы не продаём твои данные.",
+    cta_note:"Поиск бесплатно · регистрация не нужна",
+    trust_title:"Почему DreamWork",
+    trust_1_h:"Напрямую от работодателей",
+    trust_1_b:"Вакансии собираются с сайтов компаний и job-API, а не только с одной доски.",
+    trust_2_h:"Работает в России без VPN",
+    trust_2_b:"Доступ с российских IP, интерфейс на русском и английском.",
+    trust_3_h:"Письмо за секунды",
+    trust_3_b:"ИИ пишет сопроводительное письмо под каждую вакансию — отредактируй и отправь.",
+    faq_title:"Частые вопросы",
+    q1:"Это бесплатно?",
+    a1:"Поиск вакансий бесплатный. Сопроводительные письма и создание резюме станут платными — об этом сообщим заранее.",
+    q2:"Что происходит с моим резюме?",
+    a2:"Резюме используется только для подбора вакансий и генерации письма во время сессии. Текст отправляется в ИИ-сервис для обработки. Мы не продаём данные и не передаём их третьим лицам для иных целей.",
+    q3:"Нужен ли VPN?",
+    a3:"Нет. Сервис работает с российских IP и поддерживает русский и английский язык.",
+    q4:"Откуда вакансии?",
+    a4:"С сайтов работодателей и открытых job-API (Trudvsem, SuperJob, Adzuna, Google Jobs, Remotive и карьерные системы компаний).",
+    q5:"Нужна ли регистрация?",
+    a5:"Нет, для поиска регистрация не нужна. Загрузи резюме и получи результат.",
+    q6:"Подходит, если я не из России?",
+    a6:"Да. Поддерживаются США, Канада, Израиль, ОАЭ и другие страны — укажи страну или оставь поле пустым для глобального поиска.",
+    footer_contact:"Связаться",
+    footer_privacy:"Конфиденциальность",
+    footer_terms:"Условия",
+    privacy_body:"Мы обрабатываем загруженное резюме исключительно для подбора вакансий и генерации сопроводительного письма. Текст резюме отправляется в сервис ИИ (Anthropic) для обработки во время сессии. Мы не продаём данные и не передаём их третьим лицам для иных целей. По вопросам удаления данных напиши нам на почту.",
+    terms_body:"Сервис предоставляется «как есть», без гарантий трудоустройства. Вакансии собираются из внешних источников; их актуальность и условия — на стороне работодателей. Используя сервис, ты соглашаешься с обработкой резюме для подбора.",
+    footer_disclaimer:"DreamWork — сервис подбора вакансий и сопроводительных писем с ИИ. Рабочая бета."
   },
   en:{
     title:"DreamWork — your dream job from your resume",
@@ -239,7 +327,38 @@ const T = {
     err:"Error: ",
     footer:"DreamWork — AI job matching and cover letters.",
     connected:"Connected: ",
-    backend_down:"⚠️ Backend is not responding."
+    backend_down:"⚠️ Backend is not responding.",
+    meta_desc:"DreamWork — upload your resume and get matching jobs straight from employers worldwide, plus a ready cover letter for each. No VPN, in Russian and English.",
+    consent:"I consent to processing my resume to match jobs and generate a letter",
+    consent_required:"Please tick the consent to process your resume",
+    privacy_note:"Your resume is used only to match jobs and write a letter. We don't sell your data.",
+    cta_note:"Search is free · no sign-up required",
+    trust_title:"Why DreamWork",
+    trust_1_h:"Straight from employers",
+    trust_1_b:"Jobs are gathered from company sites and job APIs, not just one board.",
+    trust_2_h:"Works in Russia without VPN",
+    trust_2_b:"Accessible from Russian IPs, interface in Russian and English.",
+    trust_3_h:"Letter in seconds",
+    trust_3_b:"AI writes a cover letter tailored to each job — edit and send.",
+    faq_title:"FAQ",
+    q1:"Is it free?",
+    a1:"Job search is free. Cover letters and resume creation will become paid — we'll let you know in advance.",
+    q2:"What happens to my resume?",
+    a2:"Your resume is used only to match jobs and generate a letter during your session. The text is sent to an AI service for processing. We don't sell your data or share it with third parties for other purposes.",
+    q3:"Do I need a VPN?",
+    a3:"No. The service works from Russian IPs and supports Russian and English.",
+    q4:"Where do the jobs come from?",
+    a4:"From employer sites and open job APIs (Trudvsem, SuperJob, Adzuna, Google Jobs, Remotive and company career systems).",
+    q5:"Do I need to register?",
+    a5:"No, search needs no sign-up. Upload your resume and get results.",
+    q6:"Does it work outside Russia?",
+    a6:"Yes. The US, Canada, Israel, UAE and other countries are supported — set a country or leave it empty for a global search.",
+    footer_contact:"Contact",
+    footer_privacy:"Privacy",
+    footer_terms:"Terms",
+    privacy_body:"We process your uploaded resume solely to match jobs and generate a cover letter. The resume text is sent to an AI service (Anthropic) for processing during your session. We don't sell your data or share it with third parties for other purposes. For data deletion requests, email us.",
+    terms_body:"The service is provided “as is”, with no guarantee of employment. Jobs are gathered from external sources; their accuracy and terms are the employers' responsibility. By using the service you consent to processing your resume for matching.",
+    footer_disclaimer:"DreamWork — AI job matching and cover letters. Working beta."
   }
 };
 
@@ -249,6 +368,7 @@ function t(k){ return (T[LANG] && T[LANG][k]) || (T.ru[k]||k); }
 function applyLang(){
   document.documentElement.lang = LANG;
   document.title = t('title');
+  const md=document.getElementById('metadesc'); if(md) md.content = t('meta_desc');
   document.querySelectorAll('[data-i]').forEach(el=>{ el.textContent = t(el.getAttribute('data-i')); });
   document.querySelectorAll('[data-i-ph]').forEach(el=>{ el.placeholder = t(el.getAttribute('data-i-ph')); });
   document.querySelectorAll('[data-ui-lang]').forEach(b=>b.classList.toggle('on', b.getAttribute('data-ui-lang')===LANG));
@@ -286,6 +406,7 @@ async function copyText(text, ta){
 
 async function runMatch(){
   if(!fileInput.files[0]){ toast(t('t_pick')); return; }
+  if(!document.getElementById('consent').checked){ toast(t('consent_required')); return; }
   const go=document.getElementById('go'), sp=document.getElementById('spinner');
   go.disabled=true; sp.style.display='block';
   document.getElementById('results').innerHTML=''; document.getElementById('profile').innerHTML='';
@@ -407,6 +528,10 @@ function refreshApiHint(){
   elx.textContent=t('connected')+[...on,'Trudvsem','Remotive'].join(', ');
 }
 fetch(API+'/api/health').then(r=>r.json()).then(h=>{ _health=h; refreshApiHint(); }).catch(()=>{ _health=false; refreshApiHint(); });
+
+function openDetails(id){ const d=document.getElementById(id); if(d){ d.open=true; d.scrollIntoView({behavior:'smooth',block:'center'}); } }
+document.getElementById('lnk-privacy').addEventListener('click', ()=>openDetails('d-privacy'));
+document.getElementById('lnk-terms').addEventListener('click', ()=>openDetails('d-terms'));
 
 applyLang();
 </script>
