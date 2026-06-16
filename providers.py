@@ -1,5 +1,5 @@
 """Dreamwork — job providers layer (hybrid sourcing + country routing + dedup)."""
-import os, re, hashlib, requests
+import os, re, time, hashlib, threading, requests
 from concurrent.futures import ThreadPoolExecutor
 
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -236,9 +236,32 @@ def fetch_jsearch(keywords, location="", country=None, salary_min=None, limit=20
     return out
 
 
+# Small in-process TTL cache for ATS boards. A board listing is the same regardless
+# of the search keyword, so caching it stops us re-downloading big JSON payloads for
+# every query variant / request (the main driver of the memory spikes).
+_ATS_CACHE = {}
+_ATS_CACHE_LOCK = threading.Lock()
+_ATS_TTL = int(os.getenv("ATS_TTL", "900"))  # seconds
+
 def _ats_fetch(ats, slug):
     """Return raw jobs [{_id,title,location,url,desc}] from a company's ATS board.
-    Kept lightweight (no huge descriptions, capped count) to stay within memory."""
+    Cached (TTL) and kept lightweight (small descriptions, capped count) for memory."""
+    ck = f"{ats}:{slug}"
+    now = time.time()
+    with _ATS_CACHE_LOCK:
+        hit = _ATS_CACHE.get(ck)
+        if hit and hit[0] > now:
+            return hit[1]
+    data = _ats_fetch_live(ats, slug)
+    with _ATS_CACHE_LOCK:
+        _ATS_CACHE[ck] = (now + _ATS_TTL, data)
+        if len(_ATS_CACHE) > 200:  # bound cache size
+            for k, v in list(_ATS_CACHE.items()):
+                if v[0] <= now:
+                    _ATS_CACHE.pop(k, None)
+    return data
+
+def _ats_fetch_live(ats, slug):
     if ats == "greenhouse":
         # No content=true -> small payload (titles/links only). Filter on title.
         r = requests.get(f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs",
@@ -247,7 +270,7 @@ def _ats_fetch(ats, slug):
         return [{"_id": j.get("id"), "title": j.get("title", ""),
                  "location": (j.get("location") or {}).get("name", ""),
                  "url": j.get("absolute_url", ""), "desc": ""}
-                for j in (r.json().get("jobs", []) or [])[:200]]
+                for j in (r.json().get("jobs", []) or [])[:80]]
     if ats == "lever":
         r = requests.get(f"https://api.lever.co/v0/postings/{slug}",
                          params={"mode": "json"}, headers=UA, timeout=TIMEOUT)
@@ -255,15 +278,15 @@ def _ats_fetch(ats, slug):
         return [{"_id": j.get("id"), "title": j.get("text", ""),
                  "location": (j.get("categories") or {}).get("location", "") or "",
                  "url": j.get("hostedUrl", ""),
-                 "desc": _clean(j.get("descriptionPlain") or "")[:500]}
-                for j in (r.json() or [])[:150]]
+                 "desc": _clean(j.get("descriptionPlain") or "")[:300]}
+                for j in (r.json() or [])[:80]]
     if ats == "ashby":
         r = requests.get(f"https://api.ashbyhq.com/posting-api/job-board/{slug}", headers=UA, timeout=TIMEOUT)
         r.raise_for_status()
         return [{"_id": j.get("id"), "title": j.get("title", ""), "location": j.get("location", ""),
                  "url": j.get("jobUrl") or j.get("applyUrl") or "",
-                 "desc": _clean(j.get("descriptionPlain") or "")[:500]}
-                for j in (r.json().get("jobs", []) or [])[:150]]
+                 "desc": _clean(j.get("descriptionPlain") or "")[:300]}
+                for j in (r.json().get("jobs", []) or [])[:80]]
     return []
 
 

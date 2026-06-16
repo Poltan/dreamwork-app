@@ -16,10 +16,13 @@ Run:
 import os
 import io
 import json
+import time
+import threading
 import pathlib
+from collections import defaultdict, deque
 from concurrent.futures import ThreadPoolExecutor
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
@@ -40,9 +43,48 @@ if not FRONTEND.exists():
     FRONTEND = _HERE.parent / "frontend" / "index.html"
 
 app = FastAPI(title="Dreamwork API", version="0.1")
+# The frontend is served from this same service, so we don't need a wildcard CORS.
+# Restrict to our own origin (+ localhost for dev) so other websites can't drive our
+# paid endpoints from a user's browser. Override with ALLOWED_ORIGINS (comma-separated).
+_ORIGINS = [o.strip() for o in os.getenv(
+    "ALLOWED_ORIGINS",
+    "https://dreamwork-0nmr.onrender.com,http://localhost:8000,http://127.0.0.1:8000",
+).split(",") if o.strip()]
 app.add_middleware(
-    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+    CORSMiddleware, allow_origins=_ORIGINS, allow_methods=["*"], allow_headers=["*"],
 )
+
+# ---- Lightweight in-memory rate limiting (per client IP) -------------------
+# Protects the paid endpoints (Anthropic / provider quotas) from abuse. Single
+# instance => in-memory is enough; resets on restart.
+_RL_LOCK = threading.Lock()
+_RL_HITS = defaultdict(deque)
+
+def _client_ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "?"
+
+def _rate_limit(bucket: str, ip: str, limit: int, window: int):
+    """Allow `limit` hits per `window` seconds per (bucket, ip). Raise 429 if exceeded."""
+    now = time.time()
+    key = f"{bucket}:{ip}"
+    with _RL_LOCK:
+        dq = _RL_HITS[key]
+        while dq and dq[0] <= now - window:
+            dq.popleft()
+        if len(dq) >= limit:
+            retry = int(window - (now - dq[0])) + 1
+            raise HTTPException(429, f"Too many requests. Try again in {retry}s.")
+        dq.append(now)
+        # opportunistic cleanup to bound memory
+        if len(_RL_HITS) > 5000:
+            for k in [k for k, v in list(_RL_HITS.items()) if not v]:
+                _RL_HITS.pop(k, None)
+
+# Max resume upload size (bytes). Bounds memory + blocks upload-bomb DoS.
+MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
 
 
 def _anthropic():
@@ -195,7 +237,12 @@ def health():
 
 
 @app.get("/api/proxytest")
-def proxytest():
+def proxytest(key: str = ""):
+    # Diagnostic endpoint — gated behind DIAG_KEY so it doesn't publicly leak the
+    # egress/proxy IP. Set DIAG_KEY in the environment and call /api/proxytest?key=...
+    diag = os.getenv("DIAG_KEY")
+    if not diag or key != diag:
+        raise HTTPException(404, "Not found")
     import requests as _rq
     u = os.getenv("PROXY_URL")
     px = {"http": u, "https": u} if u else None
@@ -218,6 +265,7 @@ def proxytest():
 
 @app.post("/api/match")
 async def match(
+    request: Request,
     resume: UploadFile = File(...),
     country: str = Form(""),
     location: str = Form(""),
@@ -226,11 +274,14 @@ async def match(
     remote_ok: str = Form("false"),
     top: int = Form(10),
 ):
+    _rate_limit("match", _client_ip(request), limit=15, window=600)
     top = max(1, min(int(top), 12))
 
     data = await resume.read()
     if not data:
         raise HTTPException(400, "Empty resume file.")
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, f"Resume too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB).")
     resume_text = parse_resume(resume.filename, data)
     if len(resume_text.strip()) < 50:
         raise HTTPException(400, "Could not extract enough text from the resume.")
@@ -278,8 +329,9 @@ async def match(
     if not candidates:
         candidates = ["manager"]
 
-    # Run several query variants IN PARALLEL; aggregate + de-dupe.
-    queries = candidates[:3]
+    # Run a couple of query variants IN PARALLEL; aggregate + de-dupe.
+    # Capped at 2 to bound memory (each variant fans out to all providers).
+    queries = candidates[:2]
     remote_flag = str(remote_ok).lower() == "true"
     jobs, debug, seen_ids = [], {}, set()
 
@@ -366,7 +418,8 @@ async def match(
 
 
 @app.post("/api/letter")
-async def letter(payload: dict):
+async def letter(payload: dict, request: Request):
+    _rate_limit("letter", _client_ip(request), limit=30, window=600)
     job = payload.get("job") or {}
     profile = payload.get("profile") or {}
     resume = (payload.get("resume_text") or "")[:4000]
