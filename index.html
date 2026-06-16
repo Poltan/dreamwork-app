@@ -3,100 +3,258 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dreamwork — подбор вакансий по резюме</title>
+<title>DreamWork — работа мечты по резюме</title>
 <style>
   :root{
-    --bg:#0c0e1a; --card:#161930; --card2:#1c2040; --border:#2c3158; --text:#eef0ff; --muted:#9aa3cc;
-    --green:#34d399; --amber:#fbbf24; --gray:#9aa3cc; --g1:#7c3aed; --g2:#3b82f6; --g3:#ec4899;
+    --bg:#f6f6fb; --surface:#ffffff; --ink:#15172b; --muted:#5b6079; --line:#e7e7f0;
+    --accent:#534AB7; --accent-d:#3C3489; --accent-l:#EEEDFE;
+    --teal:#0F6E56; --teal-l:#E1F5EE; --amber:#854F0B; --amber-l:#FAEEDA;
+    --radius:14px; --shadow:0 6px 24px rgba(40,40,90,.07);
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.55;padding:0 20px 60px;max-width:920px;margin:0 auto}
-  .hero{margin:0 -20px 26px;padding:34px 28px 30px;background:linear-gradient(120deg,var(--g1),var(--g2) 55%,var(--g3));border-radius:0 0 24px 24px}
-  .hero h1{font-size:1.9rem;letter-spacing:-.5px}
-  .hero p{opacity:.9;font-size:.98rem;margin-top:6px;max-width:640px}
-  .panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:22px}
-  .row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
-  .field{flex:1;min-width:150px}
-  label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:5px}
-  input[type=text],input[type=number],select{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-family:inherit;font-size:.92rem}
-  .filebox{border:1.5px dashed var(--border);border-radius:12px;padding:18px;text-align:center;color:var(--muted);cursor:pointer;transition:border-color .15s}
-  .filebox:hover{border-color:var(--g2)}
-  .filebox.has{border-color:var(--green);color:var(--text)}
+  body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.55}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 20px 70px}
+  header{display:flex;align-items:center;justify-content:space-between;padding:18px 0}
+  .logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:1.2rem;color:var(--ink)}
+  .logo .dot{width:26px;height:26px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1rem}
+  .nav{display:flex;align-items:center;gap:14px}
+  .lang{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .lang button{border:none;background:var(--surface);color:var(--muted);padding:5px 11px;font-size:.82rem;cursor:pointer;font-family:inherit}
+  .lang button.on{background:var(--accent);color:#fff}
+  .hero{display:grid;grid-template-columns:1.05fr .95fr;gap:28px;align-items:start;margin:10px 0 8px}
+  .hero h1{font-size:2.15rem;line-height:1.15;letter-spacing:-.6px}
+  .hero .sub{color:var(--muted);font-size:1.05rem;margin-top:12px;max-width:480px}
+  .steps{margin-top:22px;display:flex;flex-direction:column;gap:12px}
+  .step{display:flex;align-items:center;gap:11px;font-size:.98rem}
+  .step .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent-l);color:var(--accent-d);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem}
+  .pricing-teaser{margin-top:22px;display:inline-flex;align-items:center;gap:8px;background:var(--accent-l);color:var(--accent-d);font-weight:600;font-size:.92rem;padding:8px 14px;border-radius:10px}
+  .trust{margin-top:14px;color:var(--muted);font-size:.85rem}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow)}
+  .panel h3{font-size:1.05rem;margin-bottom:14px}
+  label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:5px}
+  input[type=text],input[type=number],select{width:100%;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-family:inherit;font-size:.92rem}
+  input:focus,select:focus{outline:none;border-color:var(--accent)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .field{flex:1;min-width:130px}
+  .filebox{border:1.5px dashed var(--line);border-radius:12px;padding:22px 14px;text-align:center;color:var(--muted);cursor:pointer;transition:.15s;margin-bottom:14px;font-size:.92rem}
+  .filebox:hover{border-color:var(--accent);background:#fafaff}
+  .filebox.has{border-color:var(--teal);color:var(--teal);background:var(--teal-l)}
   .check{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.9rem}
-  .btn{border:none;cursor:pointer;border-radius:12px;padding:11px 20px;font-size:.92rem;font-weight:700;font-family:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:6px;transition:opacity .15s}
-  .btn:hover{opacity:.88}
-  .btn-primary{background:linear-gradient(90deg,var(--g1),var(--g2));color:#fff}
-  .btn-ghost{background:var(--card2);color:var(--text);border:1px solid var(--border)}
+  .btn{border:none;cursor:pointer;border-radius:11px;padding:11px 18px;font-size:.92rem;font-weight:600;font-family:inherit;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:.15s}
+  .btn-primary{background:var(--accent);color:#fff;width:100%}
+  .btn-primary:hover{background:var(--accent-d)}
+  .btn-ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+  .btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
   .btn[disabled]{opacity:.5;cursor:not-allowed}
-  h2{font-size:1.15rem;margin:24px 0 12px}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 20px;margin-bottom:16px;transition:transform .15s, box-shadow .15s}
-  .card:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(60,70,220,.25)}
+  .spinner{display:none;color:var(--muted);font-size:.9rem;margin-top:10px;text-align:center}
+  .apihint{display:block;margin-top:10px;color:var(--muted);font-size:.76rem;text-align:center}
+  h2{font-size:1.3rem;margin:30px 0 16px}
+  .profile{background:var(--accent-l);border-radius:var(--radius);padding:16px 18px;margin:26px 0 4px;font-size:.92rem;color:var(--accent-d)}
+  .profile b{color:var(--ink)}
+  .profile .hint{color:var(--accent);opacity:.85;font-size:.8rem}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin-bottom:14px;box-shadow:var(--shadow);transition:.15s}
+  .card:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(40,40,90,.12)}
   .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
-  .title{font-size:1.06rem;font-weight:700}
+  .title{font-size:1.05rem;font-weight:700}
   .company{color:var(--muted);font-size:.9rem;margin-top:2px}
-  .src{font-size:.72rem;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:3px 9px;color:var(--muted);white-space:nowrap}
+  .src{font-size:.72rem;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:3px 9px;color:var(--muted);white-space:nowrap}
   .meta{font-size:.84rem;color:var(--muted);margin-top:8px}
   .salary{font-weight:700;margin-top:6px}
-  .salary.green{color:var(--green)} .salary.amber{color:var(--amber)} .salary.gray{color:var(--gray);font-weight:400}
-  .fit{font-size:.9rem;opacity:.95;margin:10px 0}
-  .score{display:inline-block;font-size:.74rem;background:linear-gradient(90deg,var(--g1),var(--g3));color:#fff;border-radius:10px;padding:2px 9px;margin-left:8px}
-  .actions{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
-  .letter-box{display:none;margin-top:14px;background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:14px}
+  .salary.green{color:var(--teal)} .salary.amber{color:var(--amber)} .salary.gray{color:var(--muted);font-weight:400}
+  .fit{font-size:.9rem;margin:10px 0;color:#3a3d55}
+  .score{display:inline-block;font-size:.72rem;background:var(--teal-l);color:var(--teal);border-radius:9px;padding:2px 9px;margin-left:8px;font-weight:600}
+  .actions{display:flex;gap:9px;margin-top:12px;flex-wrap:wrap}
+  .actions .btn{width:auto}
+  .letter-box{display:none;margin-top:14px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px}
   .letter-box.open{display:block}
-  textarea{width:100%;min-height:220px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:12px;font-family:inherit;font-size:.9rem;line-height:1.5;resize:vertical}
+  textarea{width:100%;min-height:210px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:12px;font-family:inherit;font-size:.9rem;line-height:1.5;resize:vertical}
+  textarea:focus{outline:none;border-color:var(--accent)}
   .lactions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
-  .status{font-size:.85rem;color:var(--muted)}
-  .profile{background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:18px;font-size:.9rem}
-  .profile b{color:var(--text)}
-  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:linear-gradient(90deg,var(--g1),var(--g2));color:#fff;padding:10px 22px;border-radius:14px;font-weight:700;font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .3s;z-index:99}
-  .toast.show{opacity:1}
-  .spinner{display:none;color:var(--muted);font-size:.92rem;margin:8px 0}
+  .lactions .btn{width:auto}
+  .status{font-size:.85rem;color:var(--muted);margin-bottom:6px}
   .lang-toggle{display:flex;gap:6px;margin-bottom:8px}
-  .lang-toggle button{font-size:.78rem;padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--muted);cursor:pointer}
-  .lang-toggle button.on{background:var(--g2);color:#fff;border-color:var(--g2)}
-  small.hint{color:var(--muted);font-size:.78rem}
+  .lang-toggle button{font-size:.76rem;padding:4px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer}
+  .lang-toggle button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  small.hint{color:var(--muted);font-size:.78rem;display:block;margin-top:8px}
+  .status-msg{color:var(--muted);font-size:.9rem;margin-top:8px}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:11px 22px;border-radius:12px;font-weight:600;font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .3s;z-index:99}
+  .toast.show{opacity:1}
+  footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:.82rem;text-align:center}
+  @media(max-width:760px){ .hero{grid-template-columns:1fr;gap:18px} .hero h1{font-size:1.7rem} }
 </style>
 </head>
 <body>
-<div class="hero">
-  <h1>🎯 Dreamwork</h1>
-  <p>Загрузите резюме и пожелания — мы подберём вакансии напрямую с сайтов работодателей по всему миру и напишем сопроводительное письмо под каждую.</p>
-</div>
+<div class="wrap">
+  <header>
+    <div class="logo"><span class="dot">◆</span> DreamWork</div>
+    <div class="nav">
+      <div class="lang">
+        <button data-ui-lang="ru">RU</button><button data-ui-lang="en">EN</button>
+      </div>
+    </div>
+  </header>
 
-<div class="panel">
-  <div class="field" style="margin-bottom:14px">
-    <input type="file" id="file" accept=".pdf,.docx,.txt" style="display:none">
-    <div class="filebox" id="filebox" onclick="document.getElementById('file').click()">
-      📄 Перетащите или выберите резюме (PDF, DOCX, TXT)
+  <section class="hero">
+    <div>
+      <h1 data-i="hero_h1"></h1>
+      <p class="sub" data-i="hero_sub"></p>
+      <div class="steps">
+        <div class="step"><span class="n">1</span><span data-i="step1"></span></div>
+        <div class="step"><span class="n">2</span><span data-i="step2"></span></div>
+        <div class="step"><span class="n">3</span><span data-i="step3"></span></div>
+      </div>
+      <div class="pricing-teaser" data-i="pricing"></div>
+      <div class="trust" data-i="trust"></div>
     </div>
-  </div>
-  <div class="row">
-    <div class="field"><label>Страна (необязательно — иначе поиск по всему миру)</label><input type="text" id="country" placeholder="оставьте пустым для глобального поиска"></div>
-    <div class="field"><label>Город / локация (необязательно)</label><input type="text" id="location" placeholder="Moscow / New York / Remote"></div>
-  </div>
-  <div class="row">
-    <div class="field"><label>Желаемая зарплата от</label><input type="number" id="salary" placeholder="например 150000"></div>
-    <div class="field"><label>Валюта</label>
-      <select id="currency"><option>RUB</option><option>USD</option><option>EUR</option><option>GBP</option><option>ILS</option><option>SAR</option><option>AED</option><option>CAD</option></select>
-    </div>
-    <div class="field" style="display:flex;align-items:flex-end">
-      <label class="check"><input type="checkbox" id="remote"> Готов(а) к удалёнке</label>
-    </div>
-  </div>
-  <button class="btn btn-primary" id="go" onclick="runMatch()">🔍 Найти вакансии</button>
-  <div class="spinner" id="spinner">⏳ Разбираю резюме и ищу вакансии…</div>
-  <div style="margin-top:8px"><small class="hint" id="apihint"></small></div>
-</div>
 
-<div id="profile"></div>
-<div id="results"></div>
+    <div class="panel">
+      <h3 data-i="form_title"></h3>
+      <input type="file" id="file" accept=".pdf,.docx,.txt" style="display:none">
+      <div class="filebox" id="filebox" onclick="document.getElementById('file').click()" data-i="form_file"></div>
+      <div class="row">
+        <div class="field"><label data-i="form_country"></label><input type="text" id="country" data-i-ph="form_country_ph"></div>
+        <div class="field"><label data-i="form_location"></label><input type="text" id="location" data-i-ph="form_location_ph"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label data-i="form_salary"></label><input type="number" id="salary" data-i-ph="form_salary_ph"></div>
+        <div class="field"><label data-i="form_currency"></label>
+          <select id="currency"><option>RUB</option><option>USD</option><option>EUR</option><option>GBP</option><option>ILS</option><option>SAR</option><option>AED</option><option>CAD</option></select>
+        </div>
+      </div>
+      <div class="row">
+        <label class="check"><input type="checkbox" id="remote"> <span data-i="form_remote"></span></label>
+      </div>
+      <button class="btn btn-primary" id="go" onclick="runMatch()" data-i="btn_find"></button>
+      <div class="spinner" id="spinner" data-i="spinner"></div>
+      <small class="apihint" id="apihint"></small>
+    </div>
+  </section>
+
+  <div id="profile"></div>
+  <div id="results"></div>
+
+  <footer data-i="footer"></footer>
+</div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-// When served by the backend, same-origin. When opened as a file, hit local backend.
 const API = location.protocol.startsWith('http') ? '' : 'http://localhost:8000';
 let PROFILE = null, RESUME = '';
+
+const T = {
+  ru:{
+    title:"DreamWork — работа мечты по резюме",
+    hero_h1:"Работа мечты — за пару кликов",
+    hero_sub:"Загрузите резюме — ИИ подберёт вакансии напрямую с сайтов работодателей по всему миру и напишет сопроводительное письмо под каждую.",
+    step1:"Загрузите резюме",
+    step2:"ИИ подбирает вакансии",
+    step3:"Письмо и отклик в один клик",
+    pricing:"Поиск бесплатно · сопроводительное письмо от 99 ₽",
+    trust:"Без VPN · на русском и English · вакансии напрямую от работодателей",
+    form_title:"Начать подбор",
+    form_file:"📄 Перетащите или выберите резюме (PDF, DOCX, TXT)",
+    form_country:"Страна (необязательно — иначе по всему миру)",
+    form_country_ph:"пусто = глобальный поиск",
+    form_location:"Город / локация (необязательно)",
+    form_location_ph:"Москва / New York / Remote",
+    form_salary:"Желаемая зарплата от",
+    form_salary_ph:"например 150000",
+    form_currency:"Валюта",
+    form_remote:"Готов(а) к удалёнке",
+    btn_find:"🔍 Найти вакансии",
+    spinner:"⏳ Разбираю резюме и ищу вакансии…",
+    profile_search:"Ищем по",
+    profile_goals:"цели",
+    results_h:"Подходящие вакансии",
+    no_results:"Подходящих вакансий не найдено. Попробуйте изменить страну или зарплату.",
+    card_vacancy:"🔗 Вакансия",
+    card_letter:"✍️ Написать письмо",
+    card_apply:"🚀 Скопировать + отклик",
+    salary_none:"Зарплата не указана",
+    remote_tag:"· 🌍 удалённо",
+    match:"совпадение",
+    letter_ph:"Сопроводительное письмо появится здесь…",
+    letter_copy:"📋 Скопировать",
+    letter_regen:"🔄 Перегенерировать",
+    letter_hint:"Текст можно редактировать. «Скопировать + отклик» откроет страницу работодателя — вставьте письмо (Ctrl+V).",
+    letter_writing:"⏳ Пишу письмо…",
+    letter_ready:"✅ Готово — отредактируйте при необходимости",
+    letter_have:"✅ Письмо готово — отредактируйте",
+    letter_fail:"⚠️ Не удалось сгенерировать: ",
+    t_pick:"Сначала выберите резюме",
+    t_copied:"Письмо скопировано",
+    t_selected:"Выделено — нажмите Ctrl+C",
+    t_letter_first:"Сначала сгенерируйте письмо",
+    t_buffer:"Письмо в буфере — вставьте в отклик (Ctrl+V)",
+    err:"Ошибка: ",
+    footer:"DreamWork — подбор вакансий и сопроводительные письма с ИИ.",
+    connected:"Подключено: ",
+    backend_down:"⚠️ Бэкенд не отвечает."
+  },
+  en:{
+    title:"DreamWork — your dream job from your resume",
+    hero_h1:"Your dream job in a few clicks",
+    hero_sub:"Upload your resume — AI finds jobs straight from employers worldwide and writes a tailored cover letter for each.",
+    step1:"Upload your resume",
+    step2:"AI matches the jobs",
+    step3:"Letter & apply in one click",
+    pricing:"Search is free · cover letter from $2",
+    trust:"No VPN · 50+ sources · jobs straight from employers",
+    form_title:"Start matching",
+    form_file:"📄 Drag & drop or choose your resume (PDF, DOCX, TXT)",
+    form_country:"Country (optional — otherwise worldwide)",
+    form_country_ph:"empty = global search",
+    form_location:"City / location (optional)",
+    form_location_ph:"London / New York / Remote",
+    form_salary:"Desired salary from",
+    form_salary_ph:"e.g. 80000",
+    form_currency:"Currency",
+    form_remote:"Open to remote",
+    btn_find:"🔍 Find jobs",
+    spinner:"⏳ Reading your resume and searching…",
+    profile_search:"Searching for",
+    profile_goals:"targets",
+    results_h:"Matching jobs",
+    no_results:"No matching jobs found. Try changing country or salary.",
+    card_vacancy:"🔗 Job page",
+    card_letter:"✍️ Write letter",
+    card_apply:"🚀 Copy + apply",
+    salary_none:"Salary not stated",
+    remote_tag:"· 🌍 remote",
+    match:"match",
+    letter_ph:"Your cover letter will appear here…",
+    letter_copy:"📋 Copy",
+    letter_regen:"🔄 Regenerate",
+    letter_hint:"You can edit the text. “Copy + apply” opens the employer page — paste the letter (Ctrl+V).",
+    letter_writing:"⏳ Writing the letter…",
+    letter_ready:"✅ Done — edit if needed",
+    letter_have:"✅ Letter ready — edit it",
+    letter_fail:"⚠️ Could not generate: ",
+    t_pick:"Choose a resume first",
+    t_copied:"Letter copied",
+    t_selected:"Selected — press Ctrl+C",
+    t_letter_first:"Generate the letter first",
+    t_buffer:"Letter copied — paste it into the application (Ctrl+V)",
+    err:"Error: ",
+    footer:"DreamWork — AI job matching and cover letters.",
+    connected:"Connected: ",
+    backend_down:"⚠️ Backend is not responding."
+  }
+};
+
+let LANG = localStorage.getItem('dw_lang') || ((navigator.language||'').toLowerCase().startsWith('ru') ? 'ru' : 'en');
+function t(k){ return (T[LANG] && T[LANG][k]) || (T.ru[k]||k); }
+
+function applyLang(){
+  document.documentElement.lang = LANG;
+  document.title = t('title');
+  document.querySelectorAll('[data-i]').forEach(el=>{ el.textContent = t(el.getAttribute('data-i')); });
+  document.querySelectorAll('[data-i-ph]').forEach(el=>{ el.placeholder = t(el.getAttribute('data-i-ph')); });
+  document.querySelectorAll('[data-ui-lang]').forEach(b=>b.classList.toggle('on', b.getAttribute('data-ui-lang')===LANG));
+  if(fileInput && fileInput.files[0]){ filebox.textContent='✅ '+fileInput.files[0].name; filebox.classList.add('has'); }
+  refreshApiHint();
+}
 
 const fileInput = document.getElementById('file');
 const filebox = document.getElementById('filebox');
@@ -107,8 +265,11 @@ fileInput.addEventListener('change', () => {
   e.preventDefault(); if (ev==='drop' && e.dataTransfer.files[0]) { fileInput.files = e.dataTransfer.files;
     filebox.textContent='✅ '+e.dataTransfer.files[0].name; filebox.classList.add('has'); }
 }));
+document.querySelectorAll('[data-ui-lang]').forEach(b=>b.addEventListener('click',()=>{
+  LANG=b.getAttribute('data-ui-lang'); localStorage.setItem('dw_lang',LANG); applyLang();
+}));
 
-function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600);}
+function toast(m){const el=document.getElementById('toast');el.textContent=m;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2600);}
 function salaryClass(j){
   const lo=j.salary_min; if(!j.salary) return 'gray';
   if(lo && lo>=3000 && j.currency!=='RUB') return 'green';
@@ -119,12 +280,12 @@ function salaryClass(j){
 async function copyText(text, ta){
   try{ await navigator.clipboard.writeText(text); return true; }catch(e){}
   try{ if(ta){ ta.focus(); ta.select(); const ok=document.execCommand('copy'); if(ok) return true; } }catch(e){}
-  try{ const t=document.createElement('textarea'); t.value=text; t.style.cssText='position:fixed;opacity:0';
-    document.body.appendChild(t); t.select(); const ok=document.execCommand('copy'); document.body.removeChild(t); return ok; }catch(e){ return false; }
+  try{ const x=document.createElement('textarea'); x.value=text; x.style.cssText='position:fixed;opacity:0';
+    document.body.appendChild(x); x.select(); const ok=document.execCommand('copy'); document.body.removeChild(x); return ok; }catch(e){ return false; }
 }
 
 async function runMatch(){
-  if(!fileInput.files[0]){ toast('Сначала выберите резюме'); return; }
+  if(!fileInput.files[0]){ toast(t('t_pick')); return; }
   const go=document.getElementById('go'), sp=document.getElementById('spinner');
   go.disabled=true; sp.style.display='block';
   document.getElementById('results').innerHTML=''; document.getElementById('profile').innerHTML='';
@@ -137,29 +298,29 @@ async function runMatch(){
   fd.append('remote_ok', document.getElementById('remote').checked);
   try{
     const r=await fetch(API+'/api/match',{method:'POST',body:fd});
-    if(!r.ok){ const t=await r.text(); throw new Error(t || r.status); }
+    if(!r.ok){ const tx=await r.text(); throw new Error(tx || r.status); }
     const data=await r.json();
     PROFILE=data.profile; RESUME=data.resume_excerpt||'';
     renderProfile(data.profile);
     renderResults(data.jobs||[], data.note);
-  }catch(e){ toast('Ошибка: '+e.message); console.error(e); }
+  }catch(e){ toast(t('err')+e.message); console.error(e); }
   finally{ go.disabled=false; sp.style.display='none'; }
 }
 
 function renderProfile(p){
   if(!p) return;
   document.getElementById('profile').innerHTML =
-    `<div class="profile"><b>${p.headline||p.name||'Профиль'}</b> · ${p.seniority||''}<br>
-     ${(p.summary||'')}<br><small class="hint">Ищем по: ${(p.search_query||'')} · цели: ${(p.target_titles||[]).join(', ')}</small></div>`;
+    `<div class="profile"><b>${p.headline||p.name||''}</b> · ${p.seniority||''}<br>
+     ${(p.summary||'')}<br><span class="hint">${t('profile_search')}: ${(p.search_query||'')} · ${t('profile_goals')}: ${(p.target_titles||[]).join(', ')}</span></div>`;
 }
 
 let _allJobs=[], _shown=0;
 const PAGE=5;
 function renderResults(jobs, note){
   const box=document.getElementById('results');
-  if(!jobs.length){ box.innerHTML=`<p class="status">${note||'Подходящих вакансий не найдено. Попробуйте изменить страну/зарплату.'}</p>`; return; }
+  if(!jobs.length){ box.innerHTML=`<p class="status-msg">${note||t('no_results')}</p>`; return; }
   _allJobs=jobs; _shown=0;
-  box.innerHTML=`<h2>Подходящие вакансии (${jobs.length})</h2><div id="cards"></div><div id="morewrap" style="text-align:center;margin:10px 0"></div>`;
+  box.innerHTML=`<h2>${t('results_h')} (${jobs.length})</h2><div id="cards"></div><div id="morewrap" style="text-align:center;margin:10px 0"></div>`;
   showMore();
 }
 function showMore(){
@@ -168,7 +329,8 @@ function showMore(){
   _shown=Math.min(_shown+PAGE, _allJobs.length);
   const mw=document.getElementById('morewrap');
   if(_shown<_allJobs.length){
-    mw.innerHTML=`<button class="btn btn-ghost" id="moreBtn">Показать ещё (${_allJobs.length-_shown})</button>`;
+    const more = LANG==='ru' ? 'Показать ещё' : 'Show more';
+    mw.innerHTML=`<button class="btn btn-ghost" id="moreBtn" style="width:auto">${more} (${_allJobs.length-_shown})</button>`;
     document.getElementById('moreBtn').addEventListener('click', showMore);
   } else { mw.innerHTML=''; }
 }
@@ -176,69 +338,77 @@ function showMore(){
 function el(h){const d=document.createElement('div');d.innerHTML=h.trim();return d.firstChild;}
 
 function card(j){
-  const sc=j.score!=null?`<span class="score">${j.score}% совпадение</span>`:'';
+  const sc=j.score!=null?`<span class="score">${j.score}% ${t('match')}</span>`:'';
   const c=el(`<div class="card">
     <div class="card-top">
       <div><div class="title">${j.title||''} ${sc}</div><div class="company">${j.company||''}</div></div>
       <span class="src">${j.source||''}</span>
     </div>
-    <div class="meta">📍 ${j.location||'—'} ${j.remote?'· 🌍 remote':''}</div>
-    <div class="salary ${salaryClass(j)}">${j.salary||'Зарплата не указана'}</div>
+    <div class="meta">📍 ${j.location||'—'} ${j.remote?t('remote_tag'):''}</div>
+    <div class="salary ${salaryClass(j)}">${j.salary||t('salary_none')}</div>
     ${j.fit?`<div class="fit">${j.fit}</div>`:''}
     <div class="actions">
-      <a class="btn btn-ghost" href="${j.url||'#'}" target="_blank">🔗 Вакансия</a>
-      <button class="btn btn-primary" data-a="letter">✍️ Написать письмо</button>
-      <button class="btn btn-primary" data-a="apply">🚀 Скопировать + отклик</button>
+      <a class="btn btn-ghost" href="${j.url||'#'}" target="_blank">${t('card_vacancy')}</a>
+      <button class="btn btn-primary" style="width:auto" data-a="letter">${t('card_letter')}</button>
+      <button class="btn btn-ghost" data-a="apply">${t('card_apply')}</button>
     </div>
     <div class="letter-box" data-box>
-      <div class="lang-toggle"><button data-lang="ru" class="on">RU</button><button data-lang="en">EN</button></div>
+      <div class="lang-toggle"><button data-lang="ru">RU</button><button data-lang="en">EN</button></div>
       <div class="status" data-st></div>
-      <textarea data-ta placeholder="Сопроводительное письмо появится здесь…"></textarea>
+      <textarea data-ta placeholder="${t('letter_ph')}"></textarea>
       <div class="lactions">
-        <button class="btn btn-ghost" data-a="copy">📋 Скопировать</button>
-        <button class="btn btn-ghost" data-a="regen">🔄 Перегенерировать</button>
+        <button class="btn btn-ghost" data-a="copy">${t('letter_copy')}</button>
+        <button class="btn btn-ghost" data-a="regen">${t('letter_regen')}</button>
       </div>
-      <small class="hint">Текст можно редактировать. «Скопировать + отклик» откроет страницу работодателя — вставьте письмо (Ctrl+V).</small>
+      <small class="hint">${t('letter_hint')}</small>
     </div>
   </div>`);
 
   const box=c.querySelector('[data-box]'), ta=c.querySelector('[data-ta]'), st=c.querySelector('[data-st]');
-  let lang='ru';
-  c.querySelectorAll('[data-lang]').forEach(b=>b.onclick=()=>{
-    lang=b.dataset.lang; c.querySelectorAll('[data-lang]').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  let lang=LANG;
+  c.querySelectorAll('[data-lang]').forEach(b=>{
+    b.classList.toggle('on', b.dataset.lang===lang);
+    b.onclick=()=>{ lang=b.dataset.lang; c.querySelectorAll('[data-lang]').forEach(x=>x.classList.remove('on')); b.classList.add('on'); };
   });
 
   async function gen(force){
     box.classList.add('open');
-    if(ta.value && !force){ st.textContent='✅ Письмо готово — отредактируйте'; return; }
-    st.textContent='⏳ Пишу письмо…'; ta.value='';
+    if(ta.value && !force){ st.textContent=t('letter_have'); return; }
+    st.textContent=t('letter_writing'); ta.value='';
     try{
       const r=await fetch(API+'/api/letter',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({job:j, profile:PROFILE, resume_text:RESUME, lang})});
       if(!r.ok) throw new Error(await r.text());
-      const d=await r.json(); ta.value=(d.letter||'').trim(); st.textContent='✅ Готово — отредактируйте при необходимости';
-    }catch(e){ st.textContent='⚠️ Не удалось сгенерировать: '+e.message; }
+      const d=await r.json(); ta.value=(d.letter||'').trim(); st.textContent=t('letter_ready');
+    }catch(e){ st.textContent=t('letter_fail')+e.message; }
   }
 
   c.addEventListener('click', async ev=>{
     const a=ev.target?.dataset?.a; if(!a) return;
     if(a==='letter') gen(false);
     if(a==='regen') gen(true);
-    if(a==='copy'){ if(!ta.value){toast('Сначала сгенерируйте письмо');return;}
-      toast(await copyText(ta.value, ta)?'Письмо скопировано':'Выделено — нажмите Ctrl+C'); }
+    if(a==='copy'){ if(!ta.value){toast(t('t_letter_first'));return;}
+      toast(await copyText(ta.value, ta)?t('t_copied'):t('t_selected')); }
     if(a==='apply'){ if(!ta.value){ await gen(false); }
       await copyText(ta.value, ta); window.open(j.url||'#','_blank');
-      toast('Письмо в буфере — вставьте в отклик (Ctrl+V)'); }
+      toast(t('t_buffer')); }
   });
   return c;
 }
 
-// health hint
-fetch(API+'/api/health').then(r=>r.json()).then(h=>{
-  const on=[]; if(h.keys.anthropic)on.push('AI'); if(h.keys.jooble)on.push('Jooble'); if(h.keys.adzuna)on.push('Adzuna');
-  document.getElementById('apihint').textContent='Подключено: '+[...on,'hh.ru','Remotive'].join(', ')+
-    (h.keys.anthropic?'':' · ⚠️ не задан ANTHROPIC_API_KEY на сервере');
-}).catch(()=>{ document.getElementById('apihint').textContent='⚠️ Бэкенд не отвечает. Запустите сервер (uvicorn) на :8000.'; });
+let _health=null;
+function refreshApiHint(){
+  const h=_health;
+  const elx=document.getElementById('apihint');
+  if(!elx) return;
+  if(h===false){ elx.textContent=t('backend_down'); return; }
+  if(!h) return;
+  const on=[]; if(h.keys.anthropic)on.push('AI'); if(h.keys.adzuna)on.push('Adzuna'); if(h.keys.superjob)on.push('SuperJob'); if(h.keys.jsearch)on.push('Google Jobs');
+  elx.textContent=t('connected')+[...on,'Trudvsem','Remotive'].join(', ');
+}
+fetch(API+'/api/health').then(r=>r.json()).then(h=>{ _health=h; refreshApiHint(); }).catch(()=>{ _health=false; refreshApiHint(); });
+
+applyLang();
 </script>
 </body>
 </html>
