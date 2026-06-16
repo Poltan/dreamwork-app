@@ -463,6 +463,29 @@ async def letter(payload: dict, request: Request):
     return {"letter": text}
 
 
+def _static_file(name: str):
+    p = _HERE / name
+    if not p.exists():
+        p = _HERE.parent / "frontend" / name
+    return p
+
+
+@app.get("/oferta")
+def oferta():
+    p = _static_file("oferta.html")
+    if p.exists():
+        return FileResponse(str(p))
+    return JSONResponse({"error": "oferta.html not found"}, status_code=404)
+
+
+@app.get("/privacy")
+def privacy():
+    p = _static_file("privacy.html")
+    if p.exists():
+        return FileResponse(str(p))
+    return JSONResponse({"error": "privacy.html not found"}, status_code=404)
+
+
 @app.get("/")
 def index():
     if FRONTEND.exists():

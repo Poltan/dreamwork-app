@@ -184,11 +184,9 @@
     <div data-i="footer"></div>
     <div class="legal">
       <a href="mailto:nlitovkin@gmail.com" data-i="footer_contact"></a>
-      <a id="lnk-privacy" data-i="footer_privacy"></a>
-      <a id="lnk-terms" data-i="footer_terms"></a>
+      <a href="/privacy" data-i="footer_privacy"></a>
+      <a href="/oferta" data-i="footer_terms"></a>
     </div>
-    <details id="d-privacy"><summary data-i="footer_privacy"></summary><div class="a" data-i="privacy_body"></div></details>
-    <details id="d-terms"><summary data-i="footer_terms"></summary><div class="a" data-i="terms_body"></div></details>
     <div class="legal" style="margin-top:10px"><small class="hint" data-i="footer_disclaimer"></small></div>
     <div class="legal" style="margin-top:6px"><small class="hint" data-i="footer_inn"></small></div>
   </footer>
@@ -531,10 +529,6 @@ function refreshApiHint(){
   elx.textContent=t('connected')+[...on,'Trudvsem','Remotive'].join(', ');
 }
 fetch(API+'/api/health').then(r=>r.json()).then(h=>{ _health=h; refreshApiHint(); }).catch(()=>{ _health=false; refreshApiHint(); });
-
-function openDetails(id){ const d=document.getElementById(id); if(d){ d.open=true; d.scrollIntoView({behavior:'smooth',block:'center'}); } }
-document.getElementById('lnk-privacy').addEventListener('click', ()=>openDetails('d-privacy'));
-document.getElementById('lnk-terms').addEventListener('click', ()=>openDetails('d-terms'));
 
 applyLang();
 </script>
