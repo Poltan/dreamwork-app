@@ -4,7 +4,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                      "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"}
-TIMEOUT = 20
+# Shorter timeout so one slow/blocked provider can't stall the whole search.
+TIMEOUT = 12
 
 def _hash_id(*parts):
     return hashlib.sha1("|".join(str(p) for p in parts).encode("utf-8")).hexdigest()[:16]
@@ -80,7 +81,7 @@ def fetch_jooble(keywords, location="", country=None, salary_min=None, limit=20)
                               json=body, headers={"Content-Type": "application/json"}, timeout=70)
         else:
             r = requests.post(target, json=body, headers={"Content-Type": "application/json"},
-                              timeout=30, proxies=_proxies())
+                              timeout=TIMEOUT, proxies=_proxies())
         if r.status_code != 200:
             return [{"_error": f"jooble HTTP {r.status_code}: {r.text[:120]}"}]
         data = r.json()
@@ -107,7 +108,7 @@ def fetch_hh(keywords, location="", country=None, salary_min=None, limit=20):
     try:
         r = _scraper_get(full, country="ru")
         if r is None:
-            r = requests.get(full, headers=headers, timeout=30, proxies=_proxies())
+            r = requests.get(full, headers=headers, timeout=TIMEOUT, proxies=_proxies())
         r.raise_for_status(); data = r.json()
     except Exception as e:
         return [{"_error": f"hh: {e}"}]
@@ -210,7 +211,7 @@ def fetch_jsearch(keywords, location="", country=None, salary_min=None, limit=20
     try:
         r = requests.get("https://jsearch.p.rapidapi.com/search",
                          params={"query": q, "num_pages": 1, "page": 1},
-                         headers=headers, timeout=30)
+                         headers=headers, timeout=TIMEOUT)
         if r.status_code != 200:
             return [{"_error": f"jsearch HTTP {r.status_code}: {r.text[:80]}"}]
         data = r.json()
@@ -352,7 +353,10 @@ def search_jobs(keywords, location="", country="", salary_min=None, remote_ok=Fa
     if code == "RU":
         providers.append(("trudvsem", lambda: fetch_trudvsem(keywords, location, code, salary_min, per_provider)))
         providers.append(("superjob", lambda: fetch_superjob(keywords, location, code, salary_min, per_provider)))
-        providers.append(("hh", lambda: fetch_hh(keywords, location, code, salary_min, per_provider)))
+        # hh.ru is OFF by default: through the shared proxy it returns 403 yet hangs,
+        # slowing every RU search. Re-enable with HH_ENABLED=1 once a private proxy works.
+        if os.getenv("HH_ENABLED") == "1":
+            providers.append(("hh", lambda: fetch_hh(keywords, location, code, salary_min, per_provider)))
     adzuna_targets = []
     if code and code.lower() in ADZUNA_COUNTRIES:
         adzuna_targets = [code.lower()]
