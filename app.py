@@ -35,6 +35,8 @@ except Exception:
 import providers
 
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+# Fast model for the structured resume-parsing step (big speed win, negligible quality risk).
+FAST_MODEL = os.getenv("FAST_MODEL", "claude-haiku-4-5-20251001")
 _HERE = pathlib.Path(__file__).resolve().parent
 # Works for both layouts: flat (index.html next to app.py, used on the host/Render)
 # and structured (../frontend/index.html, used locally).
@@ -108,10 +110,10 @@ def _anthropic():
     return anthropic.Anthropic(api_key=key)
 
 
-def _ask_claude(prompt, max_tokens=1500, system=None):
+def _ask_claude(prompt, max_tokens=1500, system=None, model=None):
     client = _anthropic()
     msg = client.messages.create(
-        model=ANTHROPIC_MODEL,
+        model=model or ANTHROPIC_MODEL,
         max_tokens=max_tokens,
         system=system or "You are a precise assistant. Follow instructions exactly.",
         messages=[{"role": "user", "content": prompt}],
@@ -309,7 +311,7 @@ async def match(
 
     try:
         profile = _extract_json(_ask_claude(
-            PROFILE_PROMPT.format(resume=resume_text[:7000]), max_tokens=1500))
+            PROFILE_PROMPT.format(resume=resume_text[:7000]), max_tokens=1500, model=FAST_MODEL))
     except Exception:
         profile = {}
 
