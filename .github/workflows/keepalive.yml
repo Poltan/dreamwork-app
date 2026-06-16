@@ -1,0 +1,12 @@
+name: keep-warm
+# Pings the Render service so the free instance doesn't fall asleep (no ~50s cold start).
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ping health
+        run: curl -fsS https://dreamwork-0nmr.onrender.com/api/health || true
