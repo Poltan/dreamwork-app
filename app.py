@@ -37,6 +37,10 @@ import providers
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 # Fast model for the structured resume-parsing step (big speed win, negligible quality risk).
 FAST_MODEL = os.getenv("FAST_MODEL", "claude-haiku-4-5-20251001")
+# Model for job ranking. Ranking is a structured pick-top-N task, so the fast model
+# handles it well and roughly halves the AI time on the critical path. Override with
+# RANK_MODEL=claude-sonnet-4-6 to go back to the heavier model if quality needs it.
+RANK_MODEL = os.getenv("RANK_MODEL", FAST_MODEL)
 _HERE = pathlib.Path(__file__).resolve().parent
 # Works for both layouts: flat (index.html next to app.py, used on the host/Render)
 # and structured (../frontend/index.html, used locally).
@@ -464,7 +468,7 @@ async def match(
             RANK_PROMPT.format(top=top, salary_note=salary_note,
                                profile=json.dumps(profile, ensure_ascii=False),
                                jobs=json.dumps(trimmed, ensure_ascii=False)),
-            max_tokens=1500))
+            max_tokens=1500, model=RANK_MODEL))
     except Exception:
         ranked = [{"id": j["id"], "score": None, "fit": ""} for j in jobs[:top]]
 
