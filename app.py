@@ -91,7 +91,7 @@ def _rate_limit(bucket: str, ip: str, limit: int, window: int):
             dq.popleft()
         if len(dq) >= limit:
             retry = int(window - (now - dq[0])) + 1
-            raise HTTPException(429, f"Too many requests. Try again in {retry}s.")
+            raise HTTPException(429, detail={"code": "rate_limited", "retry": retry})
         dq.append(now)
         # opportunistic cleanup to bound memory
         if len(_RL_HITS) > 5000:
@@ -141,31 +141,63 @@ MAX_PDF_PAGES = 30
 MAX_DOCX_PARAS = 4000
 MAX_TEXT_CHARS = 60000
 
+# Only these file types are accepted as resumes. We validate BOTH the extension
+# and the file's binary signature (magic bytes) so a renamed executable / binary
+# can't slip through just by being called "resume.pdf".
+ALLOWED_EXTS = (".pdf", ".docx", ".txt")
+# Signatures of common non-text/executable formats we explicitly reject for .txt.
+_BINARY_HEADS = (b"MZ", b"\x7fELF", b"\xca\xfe\xba\xbe", b"\xfe\xed\xfa", b"PK", b"%PDF")
+
+
+def _err(status: int, code: str, **extra):
+    """Raise an HTTPException whose body carries a machine-readable `code`,
+    so the frontend can show a friendly, localized message (never raw text)."""
+    detail = {"code": code}
+    detail.update(extra)
+    raise HTTPException(status, detail=detail)
+
+
 def parse_resume(filename: str, data: bytes) -> str:
-    name = (filename or "").lower()
-    if name.endswith(".pdf"):
+    name = (filename or "").lower().strip()
+    ext = ("." + name.rsplit(".", 1)[-1]) if "." in name else ""
+    if ext not in ALLOWED_EXTS:
+        _err(415, "bad_format")
+
+    head = data[:8]
+
+    if ext == ".pdf":
+        if not head.startswith(b"%PDF"):
+            _err(415, "bad_format")
         try:
             import pdfplumber
             with pdfplumber.open(io.BytesIO(data)) as pdf:
                 pages = pdf.pages[:MAX_PDF_PAGES]
                 text = "\n".join((p.extract_text() or "") for p in pages)
-        except Exception as e:
-            raise HTTPException(400, "Could not read PDF.")
+        except Exception:
+            _err(400, "pdf_unreadable")
         return text[:MAX_TEXT_CHARS]
-    if name.endswith(".docx"):
+
+    if ext == ".docx":
+        # A real .docx is a ZIP container, which always starts with the "PK" signature.
+        if not head.startswith(b"PK"):
+            _err(415, "bad_format")
         try:
             import docx
             d = docx.Document(io.BytesIO(data))
             text = "\n".join(p.text for p in d.paragraphs[:MAX_DOCX_PARAS])
-        except Exception as e:
-            raise HTTPException(400, "Could not read DOCX.")
+        except Exception:
+            _err(400, "docx_unreadable")
         return text[:MAX_TEXT_CHARS]
+
+    # .txt — reject binaries (null bytes or executable/container signatures), then decode.
+    if b"\x00" in data[:4096] or head.startswith(_BINARY_HEADS):
+        _err(415, "bad_format")
     for enc in ("utf-8", "cp1251", "latin-1"):
         try:
             return data.decode(enc)[:MAX_TEXT_CHARS]
         except Exception:
             continue
-    raise HTTPException(400, "Unsupported resume format. Use PDF, DOCX or TXT.")
+    _err(415, "bad_format")
 
 
 # Rough FX rates to RUB for cross-currency salary comparison.
@@ -181,9 +213,27 @@ def _to_rub(amount, currency):
     return amount * _FX.get((currency or "RUB").upper(), 1.0)
 
 
+def _profile_is_meaningful(p) -> bool:
+    """True only if we extracted enough from the resume to drive a real job search.
+    Blocks the 'random text still returns jobs' case (empty goals -> generic search)."""
+    if not isinstance(p, dict):
+        return False
+    if p.get("is_resume") is False:
+        return False
+    has_titles = any((t or "").strip() for t in (p.get("target_titles") or []))
+    has_query = bool((p.get("search_query") or "").strip()
+                     or (p.get("search_query_en") or "").strip())
+    has_skills = any((s or "").strip() for s in (p.get("skills") or []))
+    return has_titles or has_query or has_skills
+
+
 PROFILE_PROMPT = """Извлеки из резюме структурированный профиль кандидата.
+ВАЖНО: сначала определи, действительно ли это резюме/CV (а не рассказ, статья, случайный текст,
+список покупок и т.п.). Если перед тобой НЕ резюме и из текста нельзя понять профессию и цель
+поиска работы — верни {{"is_resume": false}} и оставь остальные поля пустыми (НЕ придумывай профессию).
 Верни ТОЛЬКО JSON без пояснений, по схеме:
 {{
+  "is_resume": true,
   "name": "",
   "headline": "краткая роль одной строкой",
   "country": "страна кандидата по локации/языку резюме, на английском (напр. Russia, USA, Israel); если не ясно — пусто",
@@ -302,18 +352,24 @@ async def match(
 
     data = await resume.read()
     if not data:
-        raise HTTPException(400, "Empty resume file.")
+        _err(400, "empty_file")
     if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(413, f"Resume too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB).")
+        _err(413, "too_large", max_mb=MAX_UPLOAD_BYTES // (1024 * 1024))
     resume_text = parse_resume(resume.filename, data)
     if len(resume_text.strip()) < 50:
-        raise HTTPException(400, "Could not extract enough text from the resume.")
+        _err(400, "no_text")
 
     try:
         profile = _extract_json(_ask_claude(
             PROFILE_PROMPT.format(resume=resume_text[:7000]), max_tokens=1500, model=FAST_MODEL))
     except Exception:
         profile = {}
+
+    # Guard against "garbage in, garbage out": if the upload isn't a real resume
+    # (a story, random text, an image-only scan), the model can't extract a profile.
+    # Don't silently fall back to a generic search — tell the user clearly.
+    if not _profile_is_meaningful(profile):
+        _err(422, "no_profile")
 
     # If the user left the country blank, infer it from the resume (location/language).
     if not (country or "").strip():
@@ -349,8 +405,15 @@ async def match(
     hl = (profile.get("headline") or "").strip()
     if hl and hl not in candidates:
         candidates.append(hl)
+    # Last-resort query from skills (profile is already validated as meaningful above).
     if not candidates:
-        candidates = ["manager"]
+        skills = [s for s in (profile.get("skills") or []) if (s or "").strip()]
+        if skills:
+            candidates.append(skills[0].strip())
+    # If we still have nothing to search with, treat it as an undetectable profile
+    # rather than returning unrelated jobs.
+    if not candidates:
+        _err(422, "no_profile")
 
     # Run a couple of query variants IN PARALLEL; aggregate + de-dupe.
     # Capped at 2 to bound memory (each variant fans out to all providers).
@@ -484,6 +547,14 @@ def privacy():
     if p.exists():
         return FileResponse(str(p))
     return JSONResponse({"error": "privacy.html not found"}, status_code=404)
+
+
+@app.get("/consent")
+def consent():
+    p = _static_file("consent.html")
+    if p.exists():
+        return FileResponse(str(p))
+    return JSONResponse({"error": "consent.html not found"}, status_code=404)
 
 
 @app.get("/")

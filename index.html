@@ -150,6 +150,7 @@
         <label class="check"><input type="checkbox" id="remote"> <span data-i="form_remote"></span></label>
       </div>
       <label class="consent"><input type="checkbox" id="consent"> <span data-i="consent"></span></label>
+      <small class="hint" style="display:block;text-align:left;margin:-6px 0 12px"><a href="/consent" target="_blank" data-i="consent_link"></a></small>
       <button class="btn btn-primary" id="go" onclick="runMatch()" data-i="btn_find"></button>
       <div class="note" data-i="cta_note"></div>
       <div class="spinner" id="spinner" data-i="spinner"></div>
@@ -185,6 +186,7 @@
     <div class="legal">
       <a href="mailto:nlitovkin@gmail.com" data-i="footer_contact"></a>
       <a href="/privacy" data-i="footer_privacy"></a>
+      <a href="/consent" data-i="footer_consent"></a>
       <a href="/oferta" data-i="footer_terms"></a>
     </div>
     <div class="legal" style="margin-top:10px"><small class="hint" data-i="footer_disclaimer"></small></div>
@@ -244,12 +246,23 @@ const T = {
     t_letter_first:"Сначала сгенерируй письмо",
     t_buffer:"Письмо в буфере — вставьте в отклик (Ctrl+V)",
     err:"Ошибка: ",
+    err_generic:"Что-то пошло не так. Попробуйте ещё раз чуть позже.",
+    err_server:"Сервис временно недоступен. Попробуйте позже.",
+    err_empty_file:"Файл пустой. Загрузите резюме.",
+    err_too_large:"Файл слишком большой (максимум 5 МБ).",
+    err_bad_format:"Неподдерживаемый файл. Загрузите резюме в формате PDF, DOCX или TXT.",
+    err_pdf_unreadable:"Не удалось прочитать PDF. Попробуйте другой файл или сохраните резюме заново.",
+    err_docx_unreadable:"Не удалось прочитать DOCX. Попробуйте другой файл или сохраните резюме заново.",
+    err_no_text:"Не удалось распознать текст в резюме. Если это скан или картинка — загрузите файл с текстом (PDF/DOCX/TXT).",
+    err_no_profile:"Не удалось определить профессию и цель поиска по этому файлу. Загрузите, пожалуйста, настоящее резюме.",
+    err_rate_limited:"Слишком много запросов. Подождите немного и попробуйте снова.",
     footer:"DreamWork — подбор вакансий и сопроводительные письма с ИИ.",
     connected:"Подключено: ",
     backend_down:"⚠️ Бэкенд не отвечает.",
     meta_desc:"DreamWork — загрузи резюме и получи подходящие вакансии напрямую с сайтов работодателей по всему миру плюс готовое сопроводительное письмо. Без VPN, на русском и английском.",
-    consent:"Соглашаюсь на обработку резюме для подбора вакансий и генерации письма",
-    consent_required:"Отметь согласие на обработку резюме",
+    consent:"Я соглашаюсь на обработку моих персональных данных для подбора вакансий и генерации письма",
+    consent_link:"Согласие на обработку персональных данных →",
+    consent_required:"Отметьте согласие на обработку персональных данных",
     privacy_note:"Резюме используется только для подбора вакансий и письма. Мы не продаём твои данные.",
     cta_note:"Поиск бесплатно · регистрация не нужна",
     trust_title:"Почему DreamWork",
@@ -274,6 +287,7 @@ const T = {
     a6:"Да. Поддерживаются США, Канада, Израиль, ОАЭ и другие страны — укажи страну или оставь поле пустым для глобального поиска.",
     footer_contact:"Связаться",
     footer_privacy:"Конфиденциальность",
+    footer_consent:"Согласие на обработку ПДн",
     footer_terms:"Условия",
     privacy_body:"Мы обрабатываем загруженное резюме исключительно для подбора вакансий и генерации сопроводительного письма. Текст резюме отправляется в сервис ИИ (Anthropic) для обработки во время сессии. Мы не продаём данные и не передаём их третьим лицам для иных целей. По вопросам удаления данных напиши нам на почту.",
     terms_body:"Сервис предоставляется «как есть», без гарантий трудоустройства. Вакансии собираются из внешних источников; их актуальность и условия — на стороне работодателей. Используя сервис, ты соглашаешься с обработкой резюме для подбора.",
@@ -325,12 +339,23 @@ const T = {
     t_letter_first:"Generate the letter first",
     t_buffer:"Letter copied — paste it into the application (Ctrl+V)",
     err:"Error: ",
+    err_generic:"Something went wrong. Please try again in a moment.",
+    err_server:"The service is temporarily unavailable. Please try later.",
+    err_empty_file:"The file is empty. Please upload your resume.",
+    err_too_large:"The file is too large (max 5 MB).",
+    err_bad_format:"Unsupported file. Please upload your resume as PDF, DOCX or TXT.",
+    err_pdf_unreadable:"Couldn't read the PDF. Try another file or re-save your resume.",
+    err_docx_unreadable:"Couldn't read the DOCX. Try another file or re-save your resume.",
+    err_no_text:"Couldn't extract text from the resume. If it's a scan or image, upload a text-based file (PDF/DOCX/TXT).",
+    err_no_profile:"We couldn't determine a profession or job target from this file. Please upload an actual resume.",
+    err_rate_limited:"Too many requests. Please wait a moment and try again.",
     footer:"DreamWork — AI job matching and cover letters.",
     connected:"Connected: ",
     backend_down:"⚠️ Backend is not responding.",
     meta_desc:"DreamWork — upload your resume and get matching jobs straight from employers worldwide, plus a ready cover letter for each. No VPN, in Russian and English.",
-    consent:"I consent to processing my resume to match jobs and generate a letter",
-    consent_required:"Please tick the consent to process your resume",
+    consent:"I consent to the processing of my personal data to match jobs and generate a letter",
+    consent_link:"Personal data processing consent →",
+    consent_required:"Please tick the consent to process your personal data",
     privacy_note:"Your resume is used only to match jobs and write a letter. We don't sell your data.",
     cta_note:"Search is free · no sign-up required",
     trust_title:"Why DreamWork",
@@ -355,6 +380,7 @@ const T = {
     a6:"Yes. The US, Canada, Israel, UAE and other countries are supported — set a country or leave it empty for a global search.",
     footer_contact:"Contact",
     footer_privacy:"Privacy",
+    footer_consent:"Data processing consent",
     footer_terms:"Terms",
     privacy_body:"We process your uploaded resume solely to match jobs and generate a cover letter. The resume text is sent to an AI service (Anthropic) for processing during your session. We don't sell your data or share it with third parties for other purposes. For data deletion requests, email us.",
     terms_body:"The service is provided “as is”, with no guarantee of employment. Jobs are gathered from external sources; their accuracy and terms are the employers' responsibility. By using the service you consent to processing your resume for matching.",
@@ -379,18 +405,44 @@ function applyLang(){
 
 const fileInput = document.getElementById('file');
 const filebox = document.getElementById('filebox');
+const MAX_UPLOAD_MB = 5;
+
+// Front-end guard: only accept PDF/DOCX/TXT within the size limit. The backend
+// re-validates (incl. file signatures), but this gives instant, friendly feedback.
+function validateFile(f){
+  if(!f) return false;
+  if(!/\.(pdf|docx|txt)$/i.test(f.name)){ toast(t('err_bad_format')); return false; }
+  if(f.size === 0){ toast(t('err_empty_file')); return false; }
+  if(f.size > MAX_UPLOAD_MB*1024*1024){ toast(t('err_too_large')); return false; }
+  return true;
+}
+function markFile(f){ filebox.textContent='✅ '+f.name; filebox.classList.add('has'); }
+
 fileInput.addEventListener('change', () => {
-  if (fileInput.files[0]) { filebox.textContent = '✅ ' + fileInput.files[0].name; filebox.classList.add('has'); }
+  const f = fileInput.files[0];
+  if(!f) return;
+  if(validateFile(f)){ markFile(f); }
+  else { fileInput.value=''; filebox.classList.remove('has'); filebox.textContent=t('form_file'); }
 });
 ['dragover','dragleave','drop'].forEach(ev => filebox.addEventListener(ev, e => {
-  e.preventDefault(); if (ev==='drop' && e.dataTransfer.files[0]) { fileInput.files = e.dataTransfer.files;
-    filebox.textContent='✅ '+e.dataTransfer.files[0].name; filebox.classList.add('has'); }
+  e.preventDefault();
+  if (ev==='drop' && e.dataTransfer.files[0]) {
+    const f = e.dataTransfer.files[0];
+    if(validateFile(f)){ fileInput.files = e.dataTransfer.files; markFile(f); }
+  }
 }));
 document.querySelectorAll('[data-ui-lang]').forEach(b=>b.addEventListener('click',()=>{
   LANG=b.getAttribute('data-ui-lang'); localStorage.setItem('dw_lang',LANG); applyLang();
 }));
 
 function toast(m){const el=document.getElementById('toast');el.textContent=m;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2600);}
+// Map a backend error code (or none) to a friendly, localized message.
+function errMsg(code){ const k='err_'+(code||'generic'); const v=t(k); return (v===k)?t('err_generic'):v; }
+// Read a structured error code from a non-OK response, falling back by status.
+async function readErrCode(r){
+  try{ const j=await r.json(); return (j && j.detail && j.detail.code) || (j && j.code) || null; }
+  catch(_){ if(r.status===429) return 'rate_limited'; if(r.status>=500) return 'server'; return null; }
+}
 function salaryClass(j){
   const lo=j.salary_min; if(!j.salary) return 'gray';
   if(lo && lo>=3000 && j.currency!=='RUB') return 'green';
@@ -407,6 +459,7 @@ async function copyText(text, ta){
 
 async function runMatch(){
   if(!fileInput.files[0]){ toast(t('t_pick')); return; }
+  if(!validateFile(fileInput.files[0])){ return; }
   if(!document.getElementById('consent').checked){ toast(t('consent_required')); return; }
   const go=document.getElementById('go'), sp=document.getElementById('spinner');
   go.disabled=true; sp.style.display='block';
@@ -420,12 +473,12 @@ async function runMatch(){
   fd.append('remote_ok', document.getElementById('remote').checked);
   try{
     const r=await fetch(API+'/api/match',{method:'POST',body:fd});
-    if(!r.ok){ const tx=await r.text(); throw new Error(tx || r.status); }
+    if(!r.ok){ throw {code: await readErrCode(r)}; }
     const data=await r.json();
     PROFILE=data.profile; RESUME=data.resume_excerpt||'';
     renderProfile(data.profile);
     renderResults(data.jobs||[], data.note);
-  }catch(e){ toast(t('err')+e.message); console.error(e); }
+  }catch(e){ toast(errMsg(e&&e.code)); console.error(e); }
   finally{ go.disabled=false; sp.style.display='none'; }
 }
 
@@ -500,9 +553,9 @@ function card(j){
     try{
       const r=await fetch(API+'/api/letter',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({job:j, profile:PROFILE, resume_text:RESUME, lang})});
-      if(!r.ok) throw new Error(await r.text());
+      if(!r.ok) throw {code: await readErrCode(r)};
       const d=await r.json(); ta.value=(d.letter||'').trim(); st.textContent=t('letter_ready');
-    }catch(e){ st.textContent=t('letter_fail')+e.message; }
+    }catch(e){ st.textContent=t('letter_fail')+errMsg(e&&e.code); }
   }
 
   c.addEventListener('click', async ev=>{
