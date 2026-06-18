@@ -472,9 +472,13 @@ def _ats_fetch(ats, slug):
     return data
 
 def _ats_fetch_live(ats, slug):
-    if ats == "greenhouse":
+    # "greenhouse" -> US host; "greenhouse_eu" -> EU host (boards-api.eu.greenhouse.io).
+    # Some companies (e.g. JetBrains, Exness) host their board on the EU instance, which
+    # the US API host does not serve, so we route them explicitly.
+    if ats in ("greenhouse", "greenhouse_eu"):
+        host = "boards-api.eu.greenhouse.io" if ats == "greenhouse_eu" else "boards-api.greenhouse.io"
         # No content=true -> small payload (titles/links only). Filter on title.
-        r = requests.get(f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs",
+        r = requests.get(f"https://{host}/v1/boards/{slug}/jobs",
                          headers=UA, timeout=TIMEOUT)
         r.raise_for_status()
         return [{"_id": j.get("id"), "title": j.get("title", ""),
@@ -487,6 +491,7 @@ def _ats_fetch_live(ats, slug):
         r.raise_for_status()
         return [{"_id": j.get("id"), "title": j.get("text", ""),
                  "location": (j.get("categories") or {}).get("location", "") or "",
+                 "url": j.get("hostedUrl", ""),
                  "desc": _clean(j.get("descriptionPlain") or "")[:300]}
                 for j in (r.json() or [])[:80]]
     if ats == "ashby":
@@ -537,7 +542,7 @@ def fetch_company_ats(keywords, location="", country=None, salary_min=None, limi
                             "url": j.get("url"), "description": (j.get("desc") or "")[:1500],
                             "source": "Company: " + slug})
                 per += 1
-                if per >= 5:
+                if per >= 5:  # cap per company so one big board doesn't dominate
                     break
     return out[:limit]
 
@@ -600,6 +605,8 @@ def search_jobs(keywords, location="", country="", salary_min=None, remote_ok=Fa
         providers.append(("habr",     lambda: fetch_habr(keywords, location, code, salary_min, per_provider)))
         providers.append(("trudvsem", lambda: fetch_trudvsem(keywords, location, code, salary_min, per_provider)))
         providers.append(("superjob", lambda: fetch_superjob(keywords, location, code, salary_min, per_provider)))
+        # hh.ru is OFF by default: through the shared proxy it returns 403 yet hangs,
+        # slowing every RU search. Re-enable with HH_ENABLED=1 once a private proxy works.
         if os.getenv("HH_ENABLED") == "1":
             providers.append(("hh", lambda: fetch_hh(keywords, location, code, salary_min, per_provider)))
     adzuna_targets = []
@@ -611,6 +618,9 @@ def search_jobs(keywords, location="", country="", salary_min=None, remote_ok=Fa
         loc = "" if is_global else location
         providers.append((f"adzuna:{cc}", lambda cc=cc, loc=loc: fetch_adzuna(keywords, loc, cc, salary_min, per_provider)))
     jloc = "" if is_global else location
+    # Jooble is OFF by default: it sits behind Cloudflare and returns 403 from the
+    # server, so it never yields results yet adds latency to every search (same reason
+    # hh.ru is gated). Re-enable with JOOBLE_ENABLED=1 if a working proxy is added.
     if os.getenv("JOOBLE_ENABLED") == "1":
         providers.append(("jooble", lambda: fetch_jooble(keywords, jloc, code, salary_min, per_provider)))
     # Remote / international sources — для глобального и любого не-RU поиска
@@ -618,11 +628,12 @@ def search_jobs(keywords, location="", country="", salary_min=None, remote_ok=Fa
         providers.append(("remotive",   lambda: fetch_remotive(keywords, location, code, salary_min, per_provider)))
         providers.append(("remoteok",   lambda: fetch_remoteok(keywords, location, code, salary_min, per_provider)))
         providers.append(("wwr",        lambda: fetch_wwr(keywords, location, code, salary_min, per_provider)))
-    # Arbeitnow — EU + relocation jobs
+    # Arbeitnow — EU + relocation jobs; включаем для Европы, релокации и глобального поиска
     EU_CODES = {"DE","FR","ES","IT","NL","PL","AT","PT","CZ","HU","RO","RS","CY","CH","BE",
                 "SE","NO","FI","DK","IE","GB"}
     if is_global or remote_ok or code in EU_CODES or (code and code not in ("RU",) and code not in EU_CODES):
         providers.append(("arbeitnow", lambda: fetch_arbeitnow(keywords, location, code, salary_min, per_provider)))
+    # Company-direct sources (no-op until their keys/config are set):
     providers.append(("jsearch",     lambda: fetch_jsearch(keywords, location, code, salary_min, per_provider)))
     providers.append(("company_ats", lambda: fetch_company_ats(keywords, location, code, salary_min, per_provider)))
     jobs, debug = [], {}
