@@ -526,25 +526,38 @@ def fetch_company_ats(keywords, location="", country=None, salary_min=None, limi
         except Exception:
             return ats, slug, []
 
-    out = []
+    per_company = []
     with ThreadPoolExecutor(max_workers=min(6, len(entries))) as ex:
         for ats, slug, jobs in ex.map(_one, entries):
-            per = 0
+            picks = []
             for j in jobs:
                 text = (str(j.get("title")) + " " + str(j.get("desc"))).lower()
                 if kw and not any(w in text for w in kw):
                     continue
-                out.append({"id": _hash_id("ats", ats, j.get("_id") or j.get("url")),
-                            "title": _clean(j.get("title")), "company": slug.capitalize(),
-                            "location": _clean(j.get("location")) or "—", "country": (country or "").upper(),
-                            "salary_min": None, "salary_max": None, "currency": "", "salary": None,
-                            "remote": "remote" in text or "удал" in text,
-                            "url": j.get("url"), "description": (j.get("desc") or "")[:1500],
-                            "source": "Company: " + slug})
-                per += 1
-                if per >= 5:  # cap per company so one big board doesn't dominate
+                picks.append({"id": _hash_id("ats", ats, j.get("_id") or j.get("url")),
+                              "title": _clean(j.get("title")), "company": slug.capitalize(),
+                              "location": _clean(j.get("location")) or "—", "country": (country or "").upper(),
+                              "salary_min": None, "salary_max": None, "currency": "", "salary": None,
+                              "remote": "remote" in text or "удал" in text,
+                              "url": j.get("url"), "description": (j.get("desc") or "")[:1500],
+                              "source": "Company: " + slug})
+                if len(picks) >= 4:  # cap per company so one big board doesn't dominate
                     break
-    return out[:limit]
+            if picks:
+                per_company.append(picks)
+    # Round-robin across companies so EVERY company in COMPANY_ATS gets representation.
+    # The old flat out[:limit] filled by list order and starved the tail (e.g. the EU
+    # boards JetBrains/Exness and Deel never appeared). Total is bounded by 4/company.
+    out, i = [], 0
+    while True:
+        progressed = False
+        for picks in per_company:
+            if i < len(picks):
+                out.append(picks[i]); progressed = True
+        if not progressed:
+            break
+        i += 1
+    return out
 
 
 COUNTRY_CODE = {

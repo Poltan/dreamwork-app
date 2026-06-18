@@ -309,7 +309,7 @@ def health():
             "company_ats": bool(os.getenv("COMPANY_ATS")),
             "proxy": bool(os.getenv("PROXY_URL")),
         },
-        "always_on": ["hh.ru", "Remotive", "Trudvsem"],
+        "always_on": ["Habr Career", "Remotive", "Trudvsem"],
     }
 
 
@@ -457,6 +457,15 @@ async def match(
         if DEBUG_API:
             empty["debug"] = debug; empty["tried"] = candidates
         return JSONResponse(empty)
+
+    # Prioritize company-direct (ATS) jobs. They're fetched last, so without this they
+    # sit at the tail of the pool and get crowded out of both the AI ranking window
+    # (first 40) and the final list — defeating the "straight from employer" value.
+    # Put a bounded slice of them up front so they actually compete and can surface.
+    _ats = [j for j in jobs if str(j.get("source", "")).startswith("Company")]
+    if _ats:
+        _other = [j for j in jobs if not str(j.get("source", "")).startswith("Company")]
+        jobs = _ats[:20] + _other + _ats[20:]
 
     trimmed = [{"id": j["id"], "title": j["title"], "company": j["company"],
                 "location": j["location"], "salary": j["salary"],
