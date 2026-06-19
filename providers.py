@@ -501,7 +501,43 @@ def _ats_fetch_live(ats, slug):
                  "url": j.get("jobUrl") or j.get("applyUrl") or "",
                  "desc": _clean(j.get("descriptionPlain") or "")[:300]}
                 for j in (r.json().get("jobs", []) or [])[:80]]
+    if ats == "teamtailor":
+        # Teamtailor exposes a public RSS feed at {site}/jobs.rss (no API key).
+        # slug can be a bare subdomain ("acme" -> acme.teamtailor.com) or a full
+        # custom career host ("careers.acme.com").
+        host = slug if "." in slug else f"{slug}.teamtailor.com"
+        r = requests.get(f"https://{host}/jobs.rss",
+                         params={"per_page": 100}, headers=UA, timeout=TIMEOUT)
+        r.raise_for_status()
+        return _parse_teamtailor_rss(r.text)
     return []
+
+
+def _parse_teamtailor_rss(xml_text):
+    """Parse a Teamtailor public RSS feed into the raw ATS job shape."""
+    import xml.etree.ElementTree as ET
+    ns = {"tt": "https://teamtailor.com/locations"}
+    out = []
+    try:
+        root = ET.fromstring(xml_text)
+    except Exception:
+        return out
+    for item in root.iter("item"):
+        title = (item.findtext("title") or "").strip()
+        link = (item.findtext("link") or "").strip()
+        guid = (item.findtext("guid") or link or title)
+        loc = ""
+        locel = item.find("tt:locations/tt:location", ns)
+        if locel is not None:
+            city = (locel.findtext("tt:city", default="", namespaces=ns)
+                    or locel.findtext("tt:name", default="", namespaces=ns) or "")
+            cc = locel.findtext("tt:country", default="", namespaces=ns) or ""
+            loc = ", ".join(x for x in (city.strip(), cc.strip()) if x)
+        out.append({"_id": guid, "title": title, "location": loc,
+                    "url": link, "desc": _clean(item.findtext("description") or "")[:300]})
+        if len(out) >= 80:
+            break
+    return out
 
 
 def fetch_company_ats(keywords, location="", country=None, salary_min=None, limit=20):
