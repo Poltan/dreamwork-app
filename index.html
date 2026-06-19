@@ -171,6 +171,23 @@
     </div>
   </section>
 
+  <section class="section" id="product">
+    <h2 data-i="product_title"></h2>
+    <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;max-width:620px;margin:0 auto">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">
+        <h3 style="margin:0" data-i="product_name"></h3>
+        <div style="font-size:1.3rem;font-weight:700;color:var(--accent)" data-i="product_price"></div>
+      </div>
+      <p style="color:var(--muted);margin:10px 0" data-i="product_desc"></p>
+      <ul style="color:var(--muted);margin:8px 0;padding-left:20px">
+        <li data-i="product_incl_1"></li>
+        <li data-i="product_incl_2"></li>
+        <li data-i="product_incl_3"></li>
+      </ul>
+      <p style="font-size:.88rem;color:var(--muted);margin-top:10px" data-i="product_delivery"></p>
+    </div>
+  </section>
+
   <section class="section">
     <h2 data-i="faq_title"></h2>
     <details class="faq"><summary data-i="q1"></summary><div class="a" data-i="a1"></div></details>
@@ -181,10 +198,19 @@
     <details class="faq"><summary data-i="q6"></summary><div class="a" data-i="a6"></div></details>
   </section>
 
+  <section class="section" id="contacts">
+    <h2 data-i="contacts_title"></h2>
+    <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;max-width:620px;margin:0 auto;line-height:1.9">
+      <div data-i="contacts_who"></div>
+      <div><span data-i="contacts_email_l"></span> <a href="mailto:dreamworkjob@mail.ru">dreamworkjob@mail.ru</a></div>
+      <div><span data-i="contacts_phone_l"></span> <button class="btn btn-ghost" id="showPhone" data-p="Kzc5NjkwMDcwNDA4" style="width:auto;padding:4px 12px;display:inline-block" data-i="contacts_phone_btn"></button></div>
+    </div>
+  </section>
+
   <footer>
     <div data-i="footer"></div>
     <div class="legal">
-      <a href="mailto:nlitovkin@gmail.com" data-i="footer_contact"></a>
+      <a href="mailto:dreamworkjob@mail.ru" data-i="footer_contact"></a>
       <a href="/privacy" data-i="footer_privacy"></a>
       <a href="/consent" data-i="footer_consent"></a>
       <a href="/oferta" data-i="footer_terms"></a>
@@ -208,7 +234,7 @@ const T = {
     step1:"Загрузи резюме",
     step2:"Система найдёт тебе вакансии",
     step3:"Сопроводительное письмо и отклик на вакансию — в один клик",
-    pricing:"Поиск бесплатно · сопроводительное письмо от 99 ₽",
+    pricing:"Поиск бесплатно · сопроводительное письмо — 99 ₽",
     trust:"Без VPN · на русском и English · вакансии напрямую от работодателей",
     form_title:"Начать подбор",
     form_file:"📄 Перетащи или выбери резюме (PDF, DOCX, TXT)",
@@ -265,6 +291,19 @@ const T = {
     consent_required:"Отметьте согласие на обработку персональных данных",
     privacy_note:"Резюме используется только для подбора вакансий и письма. Мы не продаём твои данные.",
     cta_note:"Поиск бесплатно · регистрация не нужна",
+    product_title:"Платная услуга",
+    product_name:"Сопроводительное письмо под вакансию",
+    product_price:"99 ₽",
+    product_desc:"ИИ пишет персональное сопроводительное письмо под конкретную вакансию на основе твоего резюме — на русском или английском.",
+    product_incl_1:"Письмо под конкретную вакансию (3–5 абзацев)",
+    product_incl_2:"Учёт твоего опыта из резюме и требований вакансии",
+    product_incl_3:"Русский или английский язык — на выбор",
+    product_delivery:"Как получить: после оплаты письмо генерируется автоматически и сразу отображается на странице — его можно отредактировать, скопировать и вставить в отклик. Доставка мгновенная, в электронном виде.",
+    contacts_title:"Контакты и реквизиты",
+    contacts_who:"Литовкин Николай Викторович · самозанятый (плательщик НПД) · ИНН 772480473932",
+    contacts_email_l:"Email:",
+    contacts_phone_l:"Телефон:",
+    contacts_phone_btn:"Показать телефон",
     trust_title:"Почему DreamWork",
     trust_1_h:"Напрямую от работодателей",
     trust_1_b:"Вакансии собираются с сайтов компаний и job-API, а не только с одной доски.",
@@ -301,7 +340,7 @@ const T = {
     step1:"Upload your resume",
     step2:"AI matches the jobs",
     step3:"Letter & apply in one click",
-    pricing:"Search is free · cover letter from $2",
+    pricing:"Search is free · cover letter — 99 ₽",
     trust:"No VPN · 50+ sources · jobs straight from employers",
     form_title:"Start matching",
     form_file:"📄 Drag & drop or choose your resume (PDF, DOCX, TXT)",
@@ -358,6 +397,19 @@ const T = {
     consent_required:"Please tick the consent to process your personal data",
     privacy_note:"Your resume is used only to match jobs and write a letter. We don't sell your data.",
     cta_note:"Search is free · no sign-up required",
+    product_title:"Paid service",
+    product_name:"Tailored cover letter for a job",
+    product_price:"99 ₽",
+    product_desc:"AI writes a personal cover letter for a specific job based on your resume — in Russian or English.",
+    product_incl_1:"A letter tailored to a specific job (3–5 paragraphs)",
+    product_incl_2:"Uses your resume experience and the job requirements",
+    product_incl_3:"Russian or English — your choice",
+    product_delivery:"How you get it: after payment the letter is generated automatically and shown on the page instantly — you can edit, copy and paste it into your application. Delivery is immediate and digital.",
+    contacts_title:"Contacts & details",
+    contacts_who:"Nikolai Litovkin · self-employed (Russia, NPD) · INN 772480473932",
+    contacts_email_l:"Email:",
+    contacts_phone_l:"Phone:",
+    contacts_phone_btn:"Show phone",
     trust_title:"Why DreamWork",
     trust_1_h:"Straight from employers",
     trust_1_b:"Jobs are gathered from company sites and job APIs, not just one board.",
@@ -582,6 +634,20 @@ function refreshApiHint(){
   elx.textContent=t('connected')+[...on,'Trudvsem','Remotive'].join(', ');
 }
 fetch(API+'/api/health').then(r=>r.json()).then(h=>{ _health=h; refreshApiHint(); }).catch(()=>{ _health=false; refreshApiHint(); });
+
+// Phone is stored base64-encoded (not as a phone number in the page source), and
+// revealed only when a visitor clicks — so spam bots scraping the HTML can't harvest it.
+(function(){
+  const sp=document.getElementById('showPhone');
+  if(!sp) return;
+  sp.addEventListener('click',()=>{
+    const num=atob(sp.dataset.p);
+    const a=document.createElement('a');
+    a.href='tel:'+num;
+    a.textContent=num.replace(/(\+7)(\d{3})(\d{3})(\d{2})(\d{2})/,'$1 $2 $3-$4-$5');
+    sp.replaceWith(a);
+  });
+})();
 
 applyLang();
 </script>
