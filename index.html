@@ -208,6 +208,13 @@
     </div>
   </section>
 
+  <div id="cookieBar" style="display:none;position:fixed;left:0;right:0;bottom:0;background:var(--surface,#fff);border-top:1px solid var(--line,#e3e4ef);padding:12px 16px;z-index:9999;font-size:.85rem;color:var(--muted,#5b6079)">
+    <div style="max-width:900px;margin:0 auto;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap">
+      <span data-i="cookie_text"></span>
+      <button class="btn btn-ghost" id="cookieOk" style="width:auto;padding:4px 14px" data-i="cookie_btn"></button>
+    </div>
+  </div>
+
   <footer>
     <div data-i="footer"></div>
     <div class="legal">
@@ -298,6 +305,8 @@ const T = {
     pay_canceled:"Оплата не завершена. Попробуй ещё раз.",
     paid_checking:"Проверяем оплату…",
     paid_letter_title:"Готово — твоё сопроводительное письмо",
+    cookie_text:"Мы используем только технические cookie и локальное хранилище для работы сайта (например, выбранный язык). Рекламных трекеров нет. Подробнее — в Политике обработки персональных данных.",
+    cookie_btn:"Понятно",
     footer:"DreamWork — подбор вакансий и сопроводительные письма с ИИ.",
     connected:"Подключено: ",
     backend_down:"⚠️ Бэкенд не отвечает.",
@@ -419,6 +428,8 @@ const T = {
     pay_canceled:"Payment was not completed. Please try again.",
     paid_checking:"Verifying payment…",
     paid_letter_title:"Done — your cover letter",
+    cookie_text:"We use only technical cookies and local storage to run the site (e.g. your language). No ad trackers. See the Personal Data Processing Policy for details.",
+    cookie_btn:"Got it",
     footer:"DreamWork — AI job matching and cover letters.",
     connected:"Connected: ",
     backend_down:"⚠️ Backend is not responding.",
@@ -741,6 +752,15 @@ handlePaidReturn();
     a.textContent=num.replace(/(\+7)(\d{3})(\d{3})(\d{2})(\d{2})/,'$1 $2 $3-$4-$5');
     sp.replaceWith(a);
   });
+})();
+
+// Cookie notice — shown once until dismissed (we only use technical cookies/localStorage).
+(function(){
+  const bar=document.getElementById('cookieBar');
+  if(!bar) return;
+  if(!localStorage.getItem('dw_cookie_ok')) bar.style.display='block';
+  const ok=document.getElementById('cookieOk');
+  if(ok) ok.addEventListener('click',()=>{ localStorage.setItem('dw_cookie_ok','1'); bar.style.display='none'; });
 })();
 
 applyLang();
