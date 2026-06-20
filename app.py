@@ -41,6 +41,21 @@ FAST_MODEL = os.getenv("FAST_MODEL", "claude-haiku-4-5-20251001")
 # handles it well and roughly halves the AI time on the critical path. Override with
 # RANK_MODEL=claude-sonnet-4-6 to go back to the heavier model if quality needs it.
 RANK_MODEL = os.getenv("RANK_MODEL", FAST_MODEL)
+
+# --- YooKassa payments (paid cover letters) ----------------------------------
+# Whole paywall is gated behind PAID_LETTERS so the code can ship safely (letters
+# stay free) and be switched on only after testing with YooKassa test keys.
+PAID_LETTERS = os.getenv("PAID_LETTERS") == "1"
+LETTER_PRICE = os.getenv("LETTER_PRICE", "99.00")
+YK_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
+YK_SECRET = os.getenv("YOOKASSA_SECRET_KEY")
+YK_RETURN_URL = os.getenv("YOOKASSA_RETURN_URL", "https://dreamwork-0nmr.onrender.com/?paid=1")
+# Send receipt (НПД чек) data with the payment — YooKassa forms the self-employed cheque.
+YK_RECEIPT = os.getenv("YOOKASSA_RECEIPT", "1") == "1"
+# One payment unlocks exactly one letter. In-memory is enough for a single instance.
+_PAID_LOCK = threading.Lock()
+_USED_PAYMENTS = set()
+
 _HERE = pathlib.Path(__file__).resolve().parent
 # Works for both layouts: flat (index.html next to app.py, used on the host/Render)
 # and structured (../frontend/index.html, used locally).
@@ -293,11 +308,47 @@ call-to-action одним предложением. Выведи ТОЛЬКО т
 ОПИСАНИЕ: {desc}"""
 
 
+def _valid_email(e: str) -> bool:
+    e = (e or "").strip()
+    return bool(e) and 3 <= len(e) <= 254 and "@" in e and "." in e.split("@")[-1]
+
+
+def _yk_configured() -> bool:
+    return bool(YK_SHOP_ID and YK_SECRET)
+
+
+def _yk_request(method: str, path: str, body=None):
+    """Call the YooKassa API v3 with HTTP Basic auth (shopId:secretKey)."""
+    import requests as _rq
+    import base64 as _b64
+    import uuid as _uuid
+    auth = _b64.b64encode(f"{YK_SHOP_ID}:{YK_SECRET}".encode()).decode()
+    headers = {"Authorization": f"Basic {auth}", "Content-Type": "application/json"}
+    if method == "POST":
+        headers["Idempotence-Key"] = str(_uuid.uuid4())
+    return _rq.request(method, f"https://api.yookassa.ru/v3{path}",
+                       json=body, headers=headers, timeout=20)
+
+
+def _payment_succeeded(payment_id: str) -> bool:
+    try:
+        r = _yk_request("GET", f"/payments/{payment_id}")
+        if r.status_code != 200:
+            return False
+        d = r.json()
+        return d.get("status") == "succeeded" and bool(d.get("paid"))
+    except Exception:
+        return False
+
+
 @app.get("/api/health")
 def health():
     return {
         "ok": True,
         "model": ANTHROPIC_MODEL,
+        "paid_letters": PAID_LETTERS,
+        "letter_price": LETTER_PRICE,
+        "pay_configured": _yk_configured(),
         "keys": {
             "anthropic": bool(os.getenv("ANTHROPIC_API_KEY")),
             "jooble": bool(os.getenv("JOOBLE_API_KEY")),
@@ -523,6 +574,22 @@ async def match(
 @app.post("/api/letter")
 async def letter(payload: dict, request: Request):
     _rate_limit("letter", _client_ip(request), limit=30, window=600)
+
+    # Paywall: when enabled, a letter requires a confirmed, unused YooKassa payment.
+    if PAID_LETTERS:
+        pid = (payload.get("payment_id") or "").strip()
+        if not pid:
+            _err(402, "payment_required")
+        with _PAID_LOCK:
+            if pid in _USED_PAYMENTS:
+                _err(409, "payment_used")
+        if not _payment_succeeded(pid):
+            _err(402, "payment_not_confirmed")
+        with _PAID_LOCK:
+            if pid in _USED_PAYMENTS:
+                _err(409, "payment_used")
+            _USED_PAYMENTS.add(pid)
+
     job = payload.get("job") or {}
     profile = payload.get("profile") or {}
     resume = (payload.get("resume_text") or "")[:4000]
@@ -537,6 +604,65 @@ async def letter(payload: dict, request: Request):
         location=job.get("location", ""), desc=(job.get("description") or "")[:1500],
     ), max_tokens=1200)
     return {"letter": text}
+
+
+@app.post("/api/pay")
+async def pay(payload: dict, request: Request):
+    """Create a YooKassa payment for one cover letter; return a redirect URL."""
+    _rate_limit("pay", _client_ip(request), limit=20, window=600)
+    if not _yk_configured():
+        _err(503, "pay_unconfigured")
+    email = (payload.get("email") or "").strip()
+    if YK_RECEIPT and not _valid_email(email):
+        _err(400, "email_required")
+    desc = "Сопроводительное письмо под вакансию — DreamWork"
+    body = {
+        "amount": {"value": LETTER_PRICE, "currency": "RUB"},
+        "capture": True,
+        "confirmation": {"type": "redirect", "return_url": YK_RETURN_URL},
+        "description": desc,
+        "metadata": {"product": "cover_letter"},
+    }
+    if YK_RECEIPT:
+        body["receipt"] = {
+            "customer": {"email": email},
+            "items": [{
+                "description": desc[:128],
+                "quantity": "1.00",
+                "amount": {"value": LETTER_PRICE, "currency": "RUB"},
+                "vat_code": 1,            # без НДС (самозанятый/НПД)
+                "payment_subject": "service",
+                "payment_mode": "full_payment",
+            }],
+        }
+    try:
+        r = _yk_request("POST", "/payments", body)
+    except Exception:
+        _err(502, "pay_error")
+    if r.status_code not in (200, 201):
+        _err(502, "pay_error")
+    data = r.json()
+    return {
+        "payment_id": data.get("id"),
+        "confirmation_url": (data.get("confirmation") or {}).get("confirmation_url"),
+        "status": data.get("status"),
+    }
+
+
+@app.get("/api/pay/status")
+def pay_status(payment_id: str = ""):
+    if not _yk_configured():
+        _err(503, "pay_unconfigured")
+    if not payment_id.strip():
+        _err(400, "bad_request")
+    try:
+        r = _yk_request("GET", f"/payments/{payment_id.strip()}")
+    except Exception:
+        _err(502, "pay_error")
+    if r.status_code != 200:
+        _err(502, "pay_error")
+    d = r.json()
+    return {"status": d.get("status"), "paid": bool(d.get("paid"))}
 
 
 def _static_file(name: str):

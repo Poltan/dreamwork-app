@@ -159,6 +159,7 @@
     </div>
   </section>
 
+  <div id="paidResult" style="display:none;max-width:620px;margin:16px auto"></div>
   <div id="profile"></div>
   <div id="results"></div>
 
@@ -282,6 +283,21 @@ const T = {
     err_no_text:"Не удалось распознать текст в резюме. Если это скан или картинка — загрузите файл с текстом (PDF/DOCX/TXT).",
     err_no_profile:"Не удалось определить профессию и цель поиска по этому файлу. Загрузите, пожалуйста, настоящее резюме.",
     err_rate_limited:"Слишком много запросов. Подождите немного и попробуйте снова.",
+    err_pay_unconfigured:"Оплата временно недоступна. Попробуйте позже.",
+    err_pay_error:"Не удалось создать платёж. Попробуйте позже.",
+    err_email_required:"Укажите корректный email для чека.",
+    err_payment_required:"Письмо доступно после оплаты.",
+    err_payment_not_confirmed:"Оплата не подтверждена. Если деньги списались — обновите страницу через минуту.",
+    err_payment_used:"Это письмо уже было получено по данной оплате.",
+    pay_email_ph:"Email для чека",
+    pay_email_req:"Укажите корректный email для чека",
+    pay_btn:"Оплатить {price} ₽ и получить письмо",
+    pay_hint:"Письмо — платная услуга. Укажи email для чека и оплати; после оплаты письмо появится на странице.",
+    pay_creating:"Создаём платёж…",
+    pay_processing:"Оплата обрабатывается. Обнови страницу через минуту.",
+    pay_canceled:"Оплата не завершена. Попробуй ещё раз.",
+    paid_checking:"Проверяем оплату…",
+    paid_letter_title:"Готово — твоё сопроводительное письмо",
     footer:"DreamWork — подбор вакансий и сопроводительные письма с ИИ.",
     connected:"Подключено: ",
     backend_down:"⚠️ Бэкенд не отвечает.",
@@ -388,6 +404,21 @@ const T = {
     err_no_text:"Couldn't extract text from the resume. If it's a scan or image, upload a text-based file (PDF/DOCX/TXT).",
     err_no_profile:"We couldn't determine a profession or job target from this file. Please upload an actual resume.",
     err_rate_limited:"Too many requests. Please wait a moment and try again.",
+    err_pay_unconfigured:"Payments are temporarily unavailable. Please try later.",
+    err_pay_error:"Couldn't create the payment. Please try later.",
+    err_email_required:"Please enter a valid email for the receipt.",
+    err_payment_required:"The letter is available after payment.",
+    err_payment_not_confirmed:"Payment not confirmed. If you were charged, reload the page in a minute.",
+    err_payment_used:"This letter has already been delivered for that payment.",
+    pay_email_ph:"Email for the receipt",
+    pay_email_req:"Please enter a valid email for the receipt",
+    pay_btn:"Pay {price} ₽ and get the letter",
+    pay_hint:"The letter is a paid service. Enter an email for the receipt and pay; the letter will appear on the page after payment.",
+    pay_creating:"Creating the payment…",
+    pay_processing:"Payment is processing. Reload the page in a minute.",
+    pay_canceled:"Payment was not completed. Please try again.",
+    paid_checking:"Verifying payment…",
+    paid_letter_title:"Done — your cover letter",
     footer:"DreamWork — AI job matching and cover letters.",
     connected:"Connected: ",
     backend_down:"⚠️ Backend is not responding.",
@@ -582,6 +613,11 @@ function card(j){
     <div class="letter-box" data-box>
       <div class="lang-toggle"><button data-lang="ru">RU</button><button data-lang="en">EN</button></div>
       <div class="status" data-st></div>
+      <div data-payrow style="display:none">
+        <input data-payemail type="email" placeholder="${t('pay_email_ph')}" style="width:100%;margin-bottom:8px">
+        <button class="btn btn-primary" style="width:auto" data-a="pay">${t('pay_btn').replace('{price}',(_PAID&&_PAID.price)||'99')}</button>
+        <div class="status" data-payst></div>
+      </div>
       <textarea data-ta placeholder="${t('letter_ph')}"></textarea>
       <div class="lactions">
         <button class="btn btn-ghost" data-a="copy">${t('letter_copy')}</button>
@@ -600,6 +636,15 @@ function card(j){
 
   async function gen(force){
     box.classList.add('open');
+    // Paid mode: don't generate — collect email and start a YooKassa payment.
+    // The letter is delivered after payment, on return to the site.
+    if(_PAID && _PAID.on){
+      ta.style.display='none';
+      c.querySelector('.lactions').style.display='none';
+      c.querySelector('[data-payrow]').style.display='block';
+      st.textContent=t('pay_hint');
+      return;
+    }
     if(ta.value && !force){ st.textContent=t('letter_have'); return; }
     st.textContent=t('letter_writing'); ta.value='';
     try{
@@ -610,9 +655,26 @@ function card(j){
     }catch(e){ st.textContent=t('letter_fail')+errMsg(e&&e.code); }
   }
 
+  async function startPay(){
+    const emEl=c.querySelector('[data-payemail]'), payst=c.querySelector('[data-payst]');
+    const email=(emEl.value||'').trim();
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ toast(t('pay_email_req')); return; }
+    payst.textContent=t('pay_creating');
+    try{
+      localStorage.setItem('dw_pending', JSON.stringify({job:j, profile:PROFILE, resume_text:RESUME, lang}));
+      const r=await fetch(API+'/api/pay',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+      if(!r.ok) throw {code: await readErrCode(r)};
+      const d=await r.json();
+      if(!d.confirmation_url) throw {code:'pay_error'};
+      localStorage.setItem('dw_payid', d.payment_id);
+      window.location.href=d.confirmation_url;
+    }catch(e){ payst.textContent=errMsg(e&&e.code); localStorage.removeItem('dw_pending'); }
+  }
+
   c.addEventListener('click', async ev=>{
     const a=ev.target?.dataset?.a; if(!a) return;
     if(a==='letter') gen(false);
+    if(a==='pay') startPay();
     if(a==='regen') gen(true);
     if(a==='copy'){ if(!ta.value){toast(t('t_letter_first'));return;}
       toast(await copyText(ta.value, ta)?t('t_copied'):t('t_selected')); }
@@ -624,6 +686,7 @@ function card(j){
 }
 
 let _health=null;
+let _PAID={on:false, price:'99.00'};
 function refreshApiHint(){
   const h=_health;
   const elx=document.getElementById('apihint');
@@ -633,7 +696,38 @@ function refreshApiHint(){
   const on=[]; if(h.keys.anthropic)on.push('AI'); if(h.keys.adzuna)on.push('Adzuna'); if(h.keys.superjob)on.push('SuperJob'); if(h.keys.jsearch)on.push('Google Jobs');
   elx.textContent=t('connected')+[...on,'Trudvsem','Remotive'].join(', ');
 }
-fetch(API+'/api/health').then(r=>r.json()).then(h=>{ _health=h; refreshApiHint(); }).catch(()=>{ _health=false; refreshApiHint(); });
+fetch(API+'/api/health').then(r=>r.json()).then(h=>{ _health=h; _PAID={on:!!h.paid_letters, price:h.letter_price||'99.00'}; refreshApiHint(); }).catch(()=>{ _health=false; refreshApiHint(); });
+
+// After returning from the YooKassa payment page, verify the payment and deliver the letter.
+async function handlePaidReturn(){
+  const payid=localStorage.getItem('dw_payid'), pending=localStorage.getItem('dw_pending');
+  if(!payid || !pending) return;
+  const panel=document.getElementById('paidResult');
+  panel.style.display='block';
+  panel.innerHTML=`<div class="profile"><b>${t('paid_checking')}</b></div>`;
+  try{
+    const sr=await fetch(API+'/api/pay/status?payment_id='+encodeURIComponent(payid));
+    const sd=await sr.json();
+    if(sd.status!=='succeeded'){
+      panel.innerHTML=`<div class="profile">${sd.status==='canceled'?t('pay_canceled'):t('pay_processing')}</div>`;
+      if(sd.status==='canceled'){ localStorage.removeItem('dw_payid'); localStorage.removeItem('dw_pending'); }
+      return;
+    }
+    const ctx=JSON.parse(pending);
+    const lr=await fetch(API+'/api/letter',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({job:ctx.job, profile:ctx.profile, resume_text:ctx.resume_text, lang:ctx.lang, payment_id:payid})});
+    if(!lr.ok) throw {code: await readErrCode(lr)};
+    const ld=await lr.json();
+    localStorage.removeItem('dw_payid'); localStorage.removeItem('dw_pending');
+    panel.innerHTML=`<div class="profile"><b>${t('paid_letter_title')}</b><div class="hint">${(ctx.job&&ctx.job.title)||''} · ${(ctx.job&&ctx.job.company)||''}</div></div>
+      <textarea id="paidTa" style="width:100%;min-height:220px;margin-top:8px"></textarea>
+      <div class="lactions"><button class="btn btn-ghost" id="paidCopy">${t('letter_copy')}</button></div>`;
+    document.getElementById('paidTa').value=(ld.letter||'').trim();
+    document.getElementById('paidCopy').addEventListener('click', async ()=>{ const ta=document.getElementById('paidTa'); toast(await copyText(ta.value,ta)?t('t_copied'):t('t_selected')); });
+    panel.scrollIntoView({behavior:'smooth'});
+  }catch(e){ panel.innerHTML=`<div class="profile">${t('letter_fail')+errMsg(e&&e.code)}</div>`; }
+}
+handlePaidReturn();
 
 // Phone is stored base64-encoded (not as a phone number in the page source), and
 // revealed only when a visitor clicks — so spam bots scraping the HTML can't harvest it.
