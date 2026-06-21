@@ -47,6 +47,9 @@ RANK_MODEL = os.getenv("RANK_MODEL", FAST_MODEL)
 # stay free) and be switched on only after testing with YooKassa test keys.
 PAID_LETTERS = os.getenv("PAID_LETTERS") == "1"
 LETTER_PRICE = os.getenv("LETTER_PRICE", "99.00")
+# Paid product #2 — resume generation (improve an uploaded resume or build from a form).
+PAID_RESUME = os.getenv("PAID_RESUME") == "1"
+RESUME_PRICE = os.getenv("RESUME_PRICE", "1999.00")
 YK_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
 YK_SECRET = os.getenv("YOOKASSA_SECRET_KEY")
 YK_RETURN_URL = os.getenv("YOOKASSA_RETURN_URL", "https://www.dreamworkjob.ru/?paid=1")
@@ -330,13 +333,21 @@ def _yk_request(method: str, path: str, body=None):
                        json=body, headers=headers, timeout=20)
 
 
-def _payment_succeeded(payment_id: str) -> bool:
+def _payment_ok(payment_id: str, product: str) -> bool:
+    """A payment is valid for `product` only if it succeeded AND was created for that
+    product (so a 99₽ letter payment can't unlock a 1999₽ resume, and vice versa)."""
     try:
         r = _yk_request("GET", f"/payments/{payment_id}")
         if r.status_code != 200:
             return False
         d = r.json()
-        return d.get("status") == "succeeded" and bool(d.get("paid"))
+        if not (d.get("status") == "succeeded" and bool(d.get("paid"))):
+            return False
+        meta_product = (d.get("metadata") or {}).get("product")
+        if product == "letter":
+            # accept legacy/missing tags for backward compatibility
+            return meta_product in (None, "", "letter", "cover_letter")
+        return meta_product == product
     except Exception:
         return False
 
@@ -348,6 +359,8 @@ def health():
         "model": ANTHROPIC_MODEL,
         "paid_letters": PAID_LETTERS,
         "letter_price": LETTER_PRICE,
+        "paid_resume": PAID_RESUME,
+        "resume_price": RESUME_PRICE,
         "pay_configured": _yk_configured(),
         "keys": {
             "anthropic": bool(os.getenv("ANTHROPIC_API_KEY")),
@@ -583,7 +596,7 @@ async def letter(payload: dict, request: Request):
         with _PAID_LOCK:
             if pid in _USED_PAYMENTS:
                 _err(409, "payment_used")
-        if not _payment_succeeded(pid):
+        if not _payment_ok(pid, "letter"):
             _err(402, "payment_not_confirmed")
         with _PAID_LOCK:
             if pid in _USED_PAYMENTS:
@@ -615,18 +628,24 @@ async def pay(payload: dict, request: Request):
     email = (payload.get("email") or "").strip()
     if YK_RECEIPT and not _valid_email(email):
         _err(400, "email_required")
-    desc = "Сопроводительное письмо под вакансию — DreamWork"
+    product = (payload.get("product") or "letter").lower()
+    if product not in ("letter", "resume"):
+        product = "letter"
+    if product == "resume":
+        price, desc = RESUME_PRICE, "Резюме под вакансию — DreamWork"
+    else:
+        price, desc = LETTER_PRICE, "Сопроводительное письмо под вакансию — DreamWork"
     # Return the user to whatever domain they came from (works for both the onrender
     # URL and the custom domain dreamworkjob.ru); fall back to the configured default.
     _host = request.headers.get("host")
     _proto = request.headers.get("x-forwarded-proto", "https")
     return_url = f"{_proto}://{_host}/?paid=1" if _host else YK_RETURN_URL
     body = {
-        "amount": {"value": LETTER_PRICE, "currency": "RUB"},
+        "amount": {"value": price, "currency": "RUB"},
         "capture": True,
         "confirmation": {"type": "redirect", "return_url": return_url},
         "description": desc,
-        "metadata": {"product": "cover_letter"},
+        "metadata": {"product": product},
     }
     if YK_RECEIPT:
         body["receipt"] = {
@@ -634,7 +653,7 @@ async def pay(payload: dict, request: Request):
             "items": [{
                 "description": desc[:128],
                 "quantity": "1.00",
-                "amount": {"value": LETTER_PRICE, "currency": "RUB"},
+                "amount": {"value": price, "currency": "RUB"},
                 "vat_code": 1,            # без НДС (самозанятый/НПД)
                 "payment_subject": "service",
                 "payment_mode": "full_payment",
@@ -668,6 +687,82 @@ def pay_status(payment_id: str = ""):
         _err(502, "pay_error")
     d = r.json()
     return {"status": d.get("status"), "paid": bool(d.get("paid"))}
+
+
+RESUME_IMPROVE_PROMPT = """Ты — эксперт по составлению резюме с 15+ годами опыта в рекрутинге.
+Перепиши и усиль резюме кандидата, сохраняя правдивость (НЕ выдумывай факты, компании, цифры).
+Структура: Контакты · Краткое резюме (2-3 предложения) · Опыт работы (по местам, с достижениями и измеримыми результатами, где они есть) · Ключевые навыки · Образование · Языки (если есть).
+Стиль: сильные глаголы действия, конкретика, без воды и канцелярита (общие фразы вроде «коммуникабельный», «стрессоустойчивый» убери или замени фактами). Пиши {lang_rule}.
+Целевая роль/вакансия: {target} — адаптируй акценты под неё, если она указана.
+Верни ТОЛЬКО готовый текст резюме, без пояснений.
+
+ИСХОДНОЕ РЕЗЮМЕ:
+{resume}"""
+
+RESUME_CREATE_PROMPT = """Ты — эксперт по составлению резюме. Собери профессиональное резюме из данных кандидата.
+Используй только предоставленные факты (НЕ выдумывай опыт, компании, цифры); если данных мало — сделай аккуратное резюме из того, что есть.
+Структура: Контакты · Краткое резюме · Опыт работы · Ключевые навыки · Образование · Языки.
+Стиль: сильные формулировки, измеримые результаты где уместно, без воды. Пиши {lang_rule}.
+Верни ТОЛЬКО готовый текст резюме, без пояснений.
+
+ДАННЫЕ КАНДИДАТА (JSON):
+{fields}"""
+
+
+@app.post("/api/resume")
+async def resume(payload: dict, request: Request):
+    _rate_limit("resume", _client_ip(request), limit=20, window=600)
+
+    # Paywall: when enabled, a resume requires a confirmed, unused resume payment.
+    if PAID_RESUME:
+        pid = (payload.get("payment_id") or "").strip()
+        if not pid:
+            _err(402, "payment_required")
+        with _PAID_LOCK:
+            if pid in _USED_PAYMENTS:
+                _err(409, "payment_used")
+        if not _payment_ok(pid, "resume"):
+            _err(402, "payment_not_confirmed")
+        with _PAID_LOCK:
+            if pid in _USED_PAYMENTS:
+                _err(409, "payment_used")
+            _USED_PAYMENTS.add(pid)
+
+    lang = (payload.get("lang") or "ru").lower()
+    lang_rule = "на английском языке" if lang == "en" else "на русском языке"
+    mode = (payload.get("mode") or "improve").lower()
+    if mode == "create":
+        fields = payload.get("fields") or {}
+        if not any(str(v).strip() for v in fields.values()):
+            _err(400, "no_fields")
+        prompt = RESUME_CREATE_PROMPT.format(
+            lang_rule=lang_rule, fields=json.dumps(fields, ensure_ascii=False)[:6000])
+    else:
+        rtext = (payload.get("resume_text") or "")[:7000]
+        if len(rtext.strip()) < 30:
+            _err(400, "no_text")
+        target = (payload.get("target") or "").strip()[:200]
+        prompt = RESUME_IMPROVE_PROMPT.format(
+            lang_rule=lang_rule, target=(target or "не указана"), resume=rtext)
+
+    text = _ask_claude(prompt, max_tokens=1800)
+    return {"resume": text}
+
+
+@app.post("/api/parse")
+async def parse(request: Request, resume: UploadFile = File(...)):
+    """Extract text from an uploaded resume (used by the 'improve resume' flow so we
+    have the text before redirecting to payment). Same validation as /api/match."""
+    _rate_limit("parse", _client_ip(request), limit=20, window=600)
+    data = await resume.read()
+    if not data:
+        _err(400, "empty_file")
+    if len(data) > MAX_UPLOAD_BYTES:
+        _err(413, "too_large", max_mb=MAX_UPLOAD_BYTES // (1024 * 1024))
+    text = parse_resume(resume.filename, data)
+    if len(text.strip()) < 50:
+        _err(400, "no_text")
+    return {"resume_text": text[:7000]}
 
 
 def _static_file(name: str):

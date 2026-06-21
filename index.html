@@ -189,6 +189,36 @@
     </div>
   </section>
 
+  <section class="section" id="resume">
+    <h2 data-i="resume_title"></h2>
+    <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;max-width:620px;margin:0 auto">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">
+        <h3 style="margin:0" data-i="resume_name"></h3>
+        <div style="font-size:1.3rem;font-weight:700;color:var(--accent)" id="rmPrice"></div>
+      </div>
+      <p style="color:var(--muted);margin:10px 0" data-i="resume_desc"></p>
+      <div class="row" style="margin:10px 0 4px">
+        <button class="btn btn-primary" id="rmTabImprove" style="width:auto" data-i="resume_tab_improve"></button>
+        <button class="btn btn-ghost" id="rmTabCreate" style="width:auto" data-i="resume_tab_create"></button>
+      </div>
+      <div id="rmImprove">
+        <small class="hint" style="display:block;margin:6px 0" data-i="resume_improve_hint"></small>
+        <input type="text" id="rmTarget" data-i-ph="resume_target_ph" style="width:100%;margin:6px 0">
+      </div>
+      <div id="rmCreate" style="display:none">
+        <input type="text" id="rmName" data-i-ph="resume_f_name" style="width:100%;margin:6px 0">
+        <input type="text" id="rmContacts" data-i-ph="resume_f_contacts" style="width:100%;margin:6px 0">
+        <input type="text" id="rmRole" data-i-ph="resume_f_role" style="width:100%;margin:6px 0">
+        <textarea id="rmExp" data-i-ph="resume_f_exp" style="width:100%;min-height:90px;margin:6px 0"></textarea>
+        <input type="text" id="rmSkills" data-i-ph="resume_f_skills" style="width:100%;margin:6px 0">
+        <input type="text" id="rmEdu" data-i-ph="resume_f_edu" style="width:100%;margin:6px 0">
+      </div>
+      <input type="email" id="rmEmail" data-i-ph="pay_email_ph" style="width:100%;margin:8px 0;display:none">
+      <button class="btn btn-primary" id="rmGo" style="width:auto"></button>
+      <div class="status" id="rmStatus"></div>
+    </div>
+  </section>
+
   <section class="section">
     <h2 data-i="faq_title"></h2>
     <details class="faq"><summary data-i="q1"></summary><div class="a" data-i="a1"></div></details>
@@ -307,6 +337,27 @@ const T = {
     paid_letter_title:"Готово — твоё сопроводительное письмо",
     cookie_text:"Мы используем только технические cookie и локальное хранилище для работы сайта (например, выбранный язык). Рекламных трекеров нет. Подробнее — в Политике обработки персональных данных.",
     cookie_btn:"Понятно",
+    resume_title:"Резюме под вакансию",
+    resume_name:"Резюме: создать или улучшить",
+    resume_desc:"ИИ соберёт сильное резюме с нуля по твоей анкете или перепишет и усилит уже готовое — чёткая структура, формулировки с результатами, без воды.",
+    resume_tab_improve:"Улучшить моё резюме",
+    resume_tab_create:"Создать с нуля",
+    resume_improve_hint:"Загрузи резюме в форме выше (📄), при желании укажи целевую вакансию — ИИ перепишет и усилит его.",
+    resume_target_ph:"Целевая вакансия (необязательно)",
+    resume_f_name:"Имя и фамилия",
+    resume_f_contacts:"Контакты (email, телефон, город)",
+    resume_f_role:"Желаемая должность",
+    resume_f_exp:"Опыт: компании, должности, период, обязанности и достижения",
+    resume_f_skills:"Ключевые навыки (через запятую)",
+    resume_f_edu:"Образование",
+    resume_go_free:"Сделать резюме",
+    resume_pay_btn:"Оплатить {price} ₽ и получить резюме",
+    resume_generating:"Готовим резюме…",
+    resume_need_file:"Сначала загрузи резюме в форме выше (📄)",
+    resume_need_fields:"Заполни хотя бы пару полей анкеты",
+    resume_parsing:"Читаем резюме…",
+    paid_resume_title:"Готово — твоё резюме",
+    err_no_fields:"Заполни хотя бы пару полей анкеты",
     footer:"DreamWork — подбор вакансий и сопроводительные письма с ИИ.",
     connected:"Подключено: ",
     backend_down:"⚠️ Бэкенд не отвечает.",
@@ -430,6 +481,27 @@ const T = {
     paid_letter_title:"Done — your cover letter",
     cookie_text:"We use only technical cookies and local storage to run the site (e.g. your language). No ad trackers. See the Personal Data Processing Policy for details.",
     cookie_btn:"Got it",
+    resume_title:"Resume for a job",
+    resume_name:"Resume: create or improve",
+    resume_desc:"AI builds a strong resume from your form, or rewrites and sharpens your existing one — clear structure, result-driven wording, no fluff.",
+    resume_tab_improve:"Improve my resume",
+    resume_tab_create:"Create from scratch",
+    resume_improve_hint:"Upload your resume in the form above (📄); optionally set a target job — AI will rewrite and strengthen it.",
+    resume_target_ph:"Target job (optional)",
+    resume_f_name:"Full name",
+    resume_f_contacts:"Contacts (email, phone, city)",
+    resume_f_role:"Target position",
+    resume_f_exp:"Experience: companies, roles, period, duties and achievements",
+    resume_f_skills:"Key skills (comma-separated)",
+    resume_f_edu:"Education",
+    resume_go_free:"Make resume",
+    resume_pay_btn:"Pay {price} ₽ and get the resume",
+    resume_generating:"Preparing your resume…",
+    resume_need_file:"First upload your resume in the form above (📄)",
+    resume_need_fields:"Fill in at least a couple of form fields",
+    resume_parsing:"Reading the resume…",
+    paid_resume_title:"Done — your resume",
+    err_no_fields:"Fill in at least a couple of form fields",
     footer:"DreamWork — AI job matching and cover letters.",
     connected:"Connected: ",
     backend_down:"⚠️ Backend is not responding.",
@@ -698,6 +770,7 @@ function card(j){
 
 let _health=null;
 let _PAID={on:false, price:'99.00'};
+let _PAIDR={on:false, price:'1999.00'};
 function refreshApiHint(){
   const h=_health;
   const elx=document.getElementById('apihint');
@@ -707,7 +780,7 @@ function refreshApiHint(){
   const on=[]; if(h.keys.anthropic)on.push('AI'); if(h.keys.adzuna)on.push('Adzuna'); if(h.keys.superjob)on.push('SuperJob'); if(h.keys.jsearch)on.push('Google Jobs');
   elx.textContent=t('connected')+[...on,'Trudvsem','Remotive'].join(', ');
 }
-fetch(API+'/api/health').then(r=>r.json()).then(h=>{ _health=h; _PAID={on:!!h.paid_letters, price:h.letter_price||'99.00'}; refreshApiHint(); }).catch(()=>{ _health=false; refreshApiHint(); });
+fetch(API+'/api/health').then(r=>r.json()).then(h=>{ _health=h; _PAID={on:!!h.paid_letters, price:h.letter_price||'99.00'}; _PAIDR={on:!!h.paid_resume, price:h.resume_price||'1999.00'}; refreshApiHint(); setupResumeUI(); }).catch(()=>{ _health=false; refreshApiHint(); });
 
 // After returning from the YooKassa payment page, verify the payment and deliver the letter.
 async function handlePaidReturn(){
@@ -725,15 +798,24 @@ async function handlePaidReturn(){
       return;
     }
     const ctx=JSON.parse(pending);
-    const lr=await fetch(API+'/api/letter',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({job:ctx.job, profile:ctx.profile, resume_text:ctx.resume_text, lang:ctx.lang, payment_id:payid})});
-    if(!lr.ok) throw {code: await readErrCode(lr)};
-    const ld=await lr.json();
+    let endpoint, titleKey, body, isResume=(ctx.product==='resume');
+    if(isResume){
+      endpoint='/api/resume'; titleKey='paid_resume_title';
+      body={mode:ctx.mode, resume_text:ctx.resume_text, target:ctx.target, fields:ctx.fields, lang:ctx.lang, payment_id:payid};
+    } else {
+      endpoint='/api/letter'; titleKey='paid_letter_title';
+      body={job:ctx.job, profile:ctx.profile, resume_text:ctx.resume_text, lang:ctx.lang, payment_id:payid};
+    }
+    const gr=await fetch(API+endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!gr.ok) throw {code: await readErrCode(gr)};
+    const gd=await gr.json();
     localStorage.removeItem('dw_payid'); localStorage.removeItem('dw_pending');
-    panel.innerHTML=`<div class="profile"><b>${t('paid_letter_title')}</b><div class="hint">${(ctx.job&&ctx.job.title)||''} · ${(ctx.job&&ctx.job.company)||''}</div></div>
-      <textarea id="paidTa" style="width:100%;min-height:220px;margin-top:8px"></textarea>
+    const resultText=isResume?(gd.resume||''):(gd.letter||'');
+    const sub=!isResume?`<div class="hint">${(ctx.job&&ctx.job.title)||''} · ${(ctx.job&&ctx.job.company)||''}</div>`:'';
+    panel.innerHTML=`<div class="profile"><b>${t(titleKey)}</b>${sub}</div>
+      <textarea id="paidTa" style="width:100%;min-height:240px;margin-top:8px"></textarea>
       <div class="lactions"><button class="btn btn-ghost" id="paidCopy">${t('letter_copy')}</button></div>`;
-    document.getElementById('paidTa').value=(ld.letter||'').trim();
+    document.getElementById('paidTa').value=resultText.trim();
     document.getElementById('paidCopy').addEventListener('click', async ()=>{ const ta=document.getElementById('paidTa'); toast(await copyText(ta.value,ta)?t('t_copied'):t('t_selected')); });
     panel.scrollIntoView({behavior:'smooth'});
   }catch(e){ panel.innerHTML=`<div class="profile">${t('letter_fail')+errMsg(e&&e.code)}</div>`; }
@@ -761,6 +843,97 @@ handlePaidReturn();
   if(!localStorage.getItem('dw_cookie_ok')) bar.style.display='block';
   const ok=document.getElementById('cookieOk');
   if(ok) ok.addEventListener('click',()=>{ localStorage.setItem('dw_cookie_ok','1'); bar.style.display='none'; });
+})();
+
+// ---- Resume product (paid product #2) ----
+let _rmMode='improve';
+function setRmMode(m){
+  _rmMode=m;
+  const pi=document.getElementById('rmImprove'), pc=document.getElementById('rmCreate');
+  const ti=document.getElementById('rmTabImprove'), tc=document.getElementById('rmTabCreate');
+  if(pi) pi.style.display=m==='improve'?'block':'none';
+  if(pc) pc.style.display=m==='create'?'block':'none';
+  if(ti){ ti.classList.toggle('btn-primary',m==='improve'); ti.classList.toggle('btn-ghost',m!=='improve'); }
+  if(tc){ tc.classList.toggle('btn-primary',m==='create'); tc.classList.toggle('btn-ghost',m!=='create'); }
+}
+function setupResumeUI(){
+  const price=document.getElementById('rmPrice'), go=document.getElementById('rmGo'), em=document.getElementById('rmEmail');
+  if(!go) return;
+  if(_PAIDR && _PAIDR.on){
+    if(price) price.textContent=(_PAIDR.price||'1999')+' ₽';
+    go.textContent=t('resume_pay_btn').replace('{price}',_PAIDR.price||'1999');
+    if(em) em.style.display='block';
+  } else {
+    if(price) price.textContent='';
+    go.textContent=t('resume_go_free');
+    if(em) em.style.display='none';
+  }
+}
+function rmVal(id){ const e=document.getElementById(id); return e?(e.value||'').trim():''; }
+function showResumeResult(text){
+  const panel=document.getElementById('paidResult');
+  panel.style.display='block';
+  panel.innerHTML=`<div class="profile"><b>${t('paid_resume_title')}</b></div>
+    <textarea id="paidTa" style="width:100%;min-height:280px;margin-top:8px"></textarea>
+    <div class="lactions"><button class="btn btn-ghost" id="paidCopy">${t('letter_copy')}</button></div>`;
+  document.getElementById('paidTa').value=(text||'').trim();
+  document.getElementById('paidCopy').addEventListener('click', async ()=>{ const ta=document.getElementById('paidTa'); toast(await copyText(ta.value,ta)?t('t_copied'):t('t_selected')); });
+  panel.scrollIntoView({behavior:'smooth'});
+}
+async function onResumeGo(){
+  const st=document.getElementById('rmStatus');
+  const ctx={product:'resume', mode:_rmMode, lang:LANG};
+  if(_rmMode==='improve'){
+    let txt=RESUME;
+    if(!txt){
+      if(!fileInput.files[0]){ toast(t('resume_need_file')); return; }
+      if(!validateFile(fileInput.files[0])) return;
+      st.textContent=t('resume_parsing');
+      try{
+        const fd=new FormData(); fd.append('resume', fileInput.files[0]);
+        const pr=await fetch(API+'/api/parse',{method:'POST',body:fd});
+        if(!pr.ok) throw {code: await readErrCode(pr)};
+        txt=((await pr.json()).resume_text)||'';
+      }catch(e){ st.textContent=errMsg(e&&e.code); return; }
+    }
+    if(!txt){ toast(t('resume_need_file')); return; }
+    ctx.resume_text=txt; ctx.target=rmVal('rmTarget');
+  } else {
+    const fields={ name:rmVal('rmName'), contacts:rmVal('rmContacts'), target_role:rmVal('rmRole'),
+      experience:rmVal('rmExp'), skills:rmVal('rmSkills'), education:rmVal('rmEdu') };
+    if(!Object.values(fields).some(v=>v)){ toast(t('resume_need_fields')); return; }
+    ctx.fields=fields;
+  }
+  if(_PAIDR && _PAIDR.on){
+    const email=rmVal('rmEmail');
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ toast(t('pay_email_req')); return; }
+    st.textContent=t('pay_creating');
+    try{
+      localStorage.setItem('dw_pending', JSON.stringify(ctx));
+      const r=await fetch(API+'/api/pay',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email, product:'resume'})});
+      if(!r.ok) throw {code: await readErrCode(r)};
+      const d=await r.json();
+      if(!d.confirmation_url) throw {code:'pay_error'};
+      localStorage.setItem('dw_payid', d.payment_id);
+      window.location.href=d.confirmation_url;
+    }catch(e){ st.textContent=errMsg(e&&e.code); localStorage.removeItem('dw_pending'); }
+  } else {
+    st.textContent=t('resume_generating');
+    const body=_rmMode==='create'?{mode:'create', fields:ctx.fields, lang:LANG}:{mode:'improve', resume_text:ctx.resume_text, target:ctx.target, lang:LANG};
+    try{
+      const r=await fetch(API+'/api/resume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if(!r.ok) throw {code: await readErrCode(r)};
+      const d=await r.json(); st.textContent=''; showResumeResult(d.resume||'');
+    }catch(e){ st.textContent=errMsg(e&&e.code); }
+  }
+}
+(function(){
+  const tabI=document.getElementById('rmTabImprove'), tabC=document.getElementById('rmTabCreate'), go=document.getElementById('rmGo');
+  if(!go) return;
+  if(tabI) tabI.addEventListener('click',()=>setRmMode('improve'));
+  if(tabC) tabC.addEventListener('click',()=>setRmMode('create'));
+  go.addEventListener('click', onResumeGo);
+  setRmMode('improve'); setupResumeUI();
 })();
 
 applyLang();
