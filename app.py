@@ -49,7 +49,7 @@ PAID_LETTERS = os.getenv("PAID_LETTERS") == "1"
 LETTER_PRICE = os.getenv("LETTER_PRICE", "99.00")
 YK_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
 YK_SECRET = os.getenv("YOOKASSA_SECRET_KEY")
-YK_RETURN_URL = os.getenv("YOOKASSA_RETURN_URL", "https://dreamwork-0nmr.onrender.com/?paid=1")
+YK_RETURN_URL = os.getenv("YOOKASSA_RETURN_URL", "https://www.dreamworkjob.ru/?paid=1")
 # Send receipt (НПД чек) data with the payment — YooKassa forms the self-employed cheque.
 YK_RECEIPT = os.getenv("YOOKASSA_RECEIPT", "1") == "1"
 # One payment unlocks exactly one letter. In-memory is enough for a single instance.
@@ -69,7 +69,7 @@ app = FastAPI(title="Dreamwork API", version="0.1")
 # paid endpoints from a user's browser. Override with ALLOWED_ORIGINS (comma-separated).
 _ORIGINS = [o.strip() for o in os.getenv(
     "ALLOWED_ORIGINS",
-    "https://dreamwork-0nmr.onrender.com,http://localhost:8000,http://127.0.0.1:8000",
+    "https://www.dreamworkjob.ru,https://dreamworkjob.ru,https://dreamwork-0nmr.onrender.com,http://localhost:8000,http://127.0.0.1:8000",
 ).split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware, allow_origins=_ORIGINS, allow_methods=["*"], allow_headers=["*"],
@@ -616,10 +616,15 @@ async def pay(payload: dict, request: Request):
     if YK_RECEIPT and not _valid_email(email):
         _err(400, "email_required")
     desc = "Сопроводительное письмо под вакансию — DreamWork"
+    # Return the user to whatever domain they came from (works for both the onrender
+    # URL and the custom domain dreamworkjob.ru); fall back to the configured default.
+    _host = request.headers.get("host")
+    _proto = request.headers.get("x-forwarded-proto", "https")
+    return_url = f"{_proto}://{_host}/?paid=1" if _host else YK_RETURN_URL
     body = {
         "amount": {"value": LETTER_PRICE, "currency": "RUB"},
         "capture": True,
-        "confirmation": {"type": "redirect", "return_url": YK_RETURN_URL},
+        "confirmation": {"type": "redirect", "return_url": return_url},
         "description": desc,
         "metadata": {"product": "cover_letter"},
     }
