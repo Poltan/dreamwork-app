@@ -357,6 +357,8 @@ const T = {
     resume_need_fields:"Заполни хотя бы пару полей анкеты",
     resume_parsing:"Читаем резюме…",
     paid_resume_title:"Готово — твоё резюме",
+    dl_docx:"⬇ Скачать DOCX",
+    dl_pdf:"⬇ Скачать PDF",
     err_no_fields:"Заполни хотя бы пару полей анкеты",
     footer:"DreamWork — подбор вакансий и сопроводительные письма с ИИ.",
     connected:"Подключено: ",
@@ -501,6 +503,8 @@ const T = {
     resume_need_fields:"Fill in at least a couple of form fields",
     resume_parsing:"Reading the resume…",
     paid_resume_title:"Done — your resume",
+    dl_docx:"⬇ Download DOCX",
+    dl_pdf:"⬇ Download PDF",
     err_no_fields:"Fill in at least a couple of form fields",
     footer:"DreamWork — AI job matching and cover letters.",
     connected:"Connected: ",
@@ -811,7 +815,8 @@ async function handlePaidReturn(){
     const gd=await gr.json();
     localStorage.removeItem('dw_payid'); localStorage.removeItem('dw_pending');
     const resultText=isResume?(gd.resume||''):(gd.letter||'');
-    const sub=!isResume?`<div class="hint">${(ctx.job&&ctx.job.title)||''} · ${(ctx.job&&ctx.job.company)||''}</div>`:'';
+    if(isResume){ showResumeResult(resultText); return; }
+    const sub=`<div class="hint">${(ctx.job&&ctx.job.title)||''} · ${(ctx.job&&ctx.job.company)||''}</div>`;
     panel.innerHTML=`<div class="profile"><b>${t(titleKey)}</b>${sub}</div>
       <textarea id="paidTa" style="width:100%;min-height:240px;margin-top:8px"></textarea>
       <div class="lactions"><button class="btn btn-ghost" id="paidCopy">${t('letter_copy')}</button></div>`;
@@ -875,10 +880,53 @@ function showResumeResult(text){
   panel.style.display='block';
   panel.innerHTML=`<div class="profile"><b>${t('paid_resume_title')}</b></div>
     <textarea id="paidTa" style="width:100%;min-height:280px;margin-top:8px"></textarea>
-    <div class="lactions"><button class="btn btn-ghost" id="paidCopy">${t('letter_copy')}</button></div>`;
-  document.getElementById('paidTa').value=(text||'').trim();
-  document.getElementById('paidCopy').addEventListener('click', async ()=>{ const ta=document.getElementById('paidTa'); toast(await copyText(ta.value,ta)?t('t_copied'):t('t_selected')); });
+    <div class="lactions">
+      <button class="btn btn-ghost" id="paidCopy">${t('letter_copy')}</button>
+      <button class="btn btn-ghost" id="dlDocx">${t('dl_docx')}</button>
+      <button class="btn btn-ghost" id="dlPdf">${t('dl_pdf')}</button>
+    </div>`;
+  const ta=document.getElementById('paidTa'); ta.value=(text||'').trim();
+  document.getElementById('paidCopy').addEventListener('click', async ()=>{ toast(await copyText(ta.value,ta)?t('t_copied'):t('t_selected')); });
+  document.getElementById('dlDocx').addEventListener('click', ()=>downloadResumeDocx(ta.value));
+  document.getElementById('dlPdf').addEventListener('click', ()=>printResumePdf(ta.value));
   panel.scrollIntoView({behavior:'smooth'});
+}
+function mdToHtml(md){
+  const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const inl=s=>esc(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>');
+  let html='', inList=false; const close=()=>{ if(inList){ html+='</ul>'; inList=false; } };
+  (md||'').split('\n').forEach(raw=>{
+    const s=raw.trim();
+    if(!s){ close(); return; }
+    if(/^---+$/.test(s)){ close(); html+='<hr>'; return; }
+    if(/^###\s+/.test(s)){ close(); html+='<h3>'+inl(s.replace(/^###\s+/,''))+'</h3>'; return; }
+    if(/^##\s+/.test(s)){ close(); html+='<h2>'+inl(s.replace(/^##\s+/,''))+'</h2>'; return; }
+    if(/^#\s+/.test(s)){ close(); html+='<h1>'+inl(s.replace(/^#\s+/,''))+'</h1>'; return; }
+    if(/^[-*•]\s+/.test(s)){ if(!inList){ html+='<ul>'; inList=true; } html+='<li>'+inl(s.replace(/^[-*•]\s+/,''))+'</li>'; return; }
+    close(); html+='<p>'+inl(s)+'</p>';
+  });
+  close(); return html;
+}
+async function downloadResumeDocx(text){
+  if(!text||text.trim().length<20){ toast(t('resume_need_fields')); return; }
+  try{
+    const r=await fetch(API+'/api/resume/docx',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({resume:text})});
+    if(!r.ok) throw {code: await readErrCode(r)};
+    const blob=await r.blob(); const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download='resume.docx';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1500);
+  }catch(e){ toast(errMsg(e&&e.code)); }
+}
+function printResumePdf(text){
+  const w=window.open('','_blank');
+  if(!w){ toast(t('err_generic')); return; }
+  w.document.write(`<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><title>resume</title>
+    <style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:760px;margin:24px auto;padding:0 24px;color:#15172b;line-height:1.5}
+    h1{font-size:1.6rem;margin:0 0 2px} h2{font-size:1.05rem;border-bottom:1px solid #ddd;padding-bottom:3px;margin:18px 0 8px;text-transform:uppercase;letter-spacing:.5px}
+    h3{font-size:1rem;margin:12px 0 4px} ul{margin:6px 0;padding-left:20px} li{margin:2px 0} p{margin:6px 0} hr{border:none;border-top:1px solid #e3e4ef;margin:10px 0}</style>
+    </head><body>${mdToHtml(text)}</body></html>`);
+  w.document.close();
+  setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 350);
 }
 async function onResumeGo(){
   const st=document.getElementById('rmStatus');

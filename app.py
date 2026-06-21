@@ -24,7 +24,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 try:
     from dotenv import load_dotenv
@@ -747,6 +747,58 @@ async def resume(payload: dict, request: Request):
 
     text = _ask_claude(prompt, max_tokens=1800)
     return {"resume": text}
+
+
+import re as _re_md
+
+def _resume_to_docx(text: str) -> bytes:
+    """Render the markdown-ish resume text into a .docx (headings, bullets, bold)."""
+    import docx
+    d = docx.Document()
+
+    def add_runs(p, s):
+        for part in _re_md.split(r"(\*\*.+?\*\*)", s):
+            if part.startswith("**") and part.endswith("**") and len(part) > 4:
+                p.add_run(part[2:-2]).bold = True
+            elif part:
+                p.add_run(part)
+
+    for raw in (text or "").split("\n"):
+        s = raw.strip()
+        if not s or _re_md.match(r"^-{3,}$", s):
+            continue
+        if s.startswith("### "):
+            d.add_heading(s[4:], level=3)
+        elif s.startswith("## "):
+            d.add_heading(s[3:], level=2)
+        elif s.startswith("# "):
+            d.add_heading(s[2:], level=1)
+        elif _re_md.match(r"^[-*•]\s+", s):
+            add_runs(d.add_paragraph(style="List Bullet"), _re_md.sub(r"^[-*•]\s+", "", s))
+        else:
+            add_runs(d.add_paragraph(), s)
+
+    buf = io.BytesIO()
+    d.save(buf)
+    return buf.getvalue()
+
+
+@app.post("/api/resume/docx")
+async def resume_docx(payload: dict, request: Request):
+    """Turn a generated resume (markdown text) into a downloadable .docx."""
+    _rate_limit("resume_docx", _client_ip(request), limit=30, window=600)
+    text = (payload.get("resume") or "").strip()
+    if len(text) < 20:
+        _err(400, "no_text")
+    try:
+        data = _resume_to_docx(text)
+    except Exception:
+        _err(500, "server")
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": 'attachment; filename="resume.docx"'},
+    )
 
 
 @app.post("/api/parse")
