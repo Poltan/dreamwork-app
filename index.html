@@ -41,6 +41,7 @@
   input:focus,select:focus{outline:none;border-color:var(--accent)}
   .row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
   .field{flex:1;min-width:130px}
+  .field label{min-height:2.8em}
   .filebox{border:1.5px dashed var(--line);border-radius:12px;padding:22px 14px;text-align:center;color:var(--muted);cursor:pointer;transition:.15s;margin-bottom:14px;font-size:.92rem}
   .filebox:hover{border-color:var(--accent);background:#fafaff}
   .filebox.has{border-color:var(--teal);color:var(--teal);background:var(--teal-l)}
@@ -187,11 +188,8 @@
       </ul>
       <p style="font-size:.88rem;color:var(--muted);margin-top:10px" data-i="product_delivery"></p>
     </div>
-  </section>
 
-  <section class="section" id="resume">
-    <h2 data-i="resume_title"></h2>
-    <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;max-width:620px;margin:0 auto">
+    <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;max-width:620px;margin:18px auto 0">
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">
         <h3 style="margin:0" data-i="resume_name"></h3>
         <div style="font-size:1.3rem;font-weight:700;color:var(--accent)" id="rmPrice"></div>
@@ -367,7 +365,7 @@ const T = {
     consent_required:"Отметьте согласие на обработку персональных данных",
     privacy_note:"Резюме используется только для подбора вакансий и письма. Мы не продаём твои данные.",
     cta_note:"Поиск бесплатно · регистрация не нужна",
-    product_title:"Платная услуга",
+    product_title:"Платные услуги",
     product_name:"Сопроводительное письмо под вакансию",
     product_price:"99 ₽",
     product_desc:"ИИ пишет персональное сопроводительное письмо под конкретную вакансию на основе твоего резюме — на русском или английском.",
@@ -511,7 +509,7 @@ const T = {
     consent_required:"Please tick the consent to process your personal data",
     privacy_note:"Your resume is used only to match jobs and write a letter. We don't sell your data.",
     cta_note:"Search is free · no sign-up required",
-    product_title:"Paid service",
+    product_title:"Paid services",
     product_name:"Tailored cover letter for a job",
     product_price:"99 ₽",
     product_desc:"AI writes a personal cover letter for a specific job based on your resume — in Russian or English.",
