@@ -86,6 +86,21 @@ async def _security_headers(request: Request, call_next):
     resp.headers["X-Frame-Options"] = "DENY"
     resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    # Content-Security-Policy: defense in depth. The frontend is a single inline
+    # HTML file (inline <style>/<script>) plus Google Fonts, and talks only to its
+    # own origin (/api/*); payment is a top-level redirect to YooKassa. 'unsafe-inline'
+    # is required because the app is inline; the real XSS guard is output escaping.
+    resp.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "form-action 'self'; "
+        "base-uri 'self'; "
+        "frame-ancestors 'none'"
+    )
     return resp
 
 # Expose internal debug fields only when explicitly enabled.
@@ -162,6 +177,9 @@ def _extract_json(text):
 MAX_PDF_PAGES = 30
 MAX_DOCX_PARAS = 4000
 MAX_TEXT_CHARS = 60000
+# Reject DOCX/ZIP archives whose *uncompressed* size is far above the upload cap,
+# so a small "zip bomb" can't expand to GBs in memory during parsing.
+MAX_DOCX_UNCOMPRESSED = int(os.getenv("MAX_DOCX_UNCOMPRESSED", str(80 * 1024 * 1024)))
 
 # Only these file types are accepted as resumes. We validate BOTH the extension
 # and the file's binary signature (magic bytes) so a renamed executable / binary
@@ -204,9 +222,15 @@ def parse_resume(filename: str, data: bytes) -> str:
         if not head.startswith(b"PK"):
             _err(415, "bad_format")
         try:
-            import docx
+            import docx, zipfile
+            # Zip-bomb guard: refuse archives that expand far beyond the upload cap.
+            with zipfile.ZipFile(io.BytesIO(data)) as zf:
+                if sum(i.file_size for i in zf.infolist()) > MAX_DOCX_UNCOMPRESSED:
+                    _err(413, "too_large", max_mb=MAX_UPLOAD_BYTES // (1024 * 1024))
             d = docx.Document(io.BytesIO(data))
             text = "\n".join(p.text for p in d.paragraphs[:MAX_DOCX_PARAS])
+        except HTTPException:
+            raise
         except Exception:
             _err(400, "docx_unreadable")
         return text[:MAX_TEXT_CHARS]
@@ -345,8 +369,7 @@ def _payment_ok(payment_id: str, product: str) -> bool:
             return False
         meta_product = (d.get("metadata") or {}).get("product")
         if product == "letter":
-            # accept legacy/missing tags for backward compatibility
-            return meta_product in (None, "", "letter", "cover_letter")
+            return meta_product in ("letter", "cover_letter")
         return meta_product == product
     except Exception:
         return False
@@ -637,9 +660,14 @@ async def pay(payload: dict, request: Request):
         price, desc = LETTER_PRICE, "Сопроводительное письмо под вакансию — DreamWork"
     # Return the user to whatever domain they came from (works for both the onrender
     # URL and the custom domain dreamworkjob.ru); fall back to the configured default.
+    # Only build the return URL from the request host if that origin is on our
+    # allowlist; otherwise fall back to the configured default. This prevents a
+    # spoofed Host/X-Forwarded-Proto header from redirecting the payment flow
+    # to an attacker-controlled domain.
     _host = request.headers.get("host")
     _proto = request.headers.get("x-forwarded-proto", "https")
-    return_url = f"{_proto}://{_host}/?paid=1" if _host else YK_RETURN_URL
+    _origin = f"{_proto}://{_host}" if _host else ""
+    return_url = f"{_origin}/?paid=1" if _origin in _ORIGINS else YK_RETURN_URL
     body = {
         "amount": {"value": price, "currency": "RUB"},
         "capture": True,

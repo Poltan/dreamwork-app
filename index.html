@@ -625,6 +625,10 @@ document.querySelectorAll('[data-ui-lang]').forEach(b=>b.addEventListener('click
 }));
 
 function toast(m){const el=document.getElementById('toast');el.textContent=m;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2600);}
+// Security: escape any provider/AI-supplied text before injecting into innerHTML,
+// and only allow http(s) links (blocks javascript: and other dangerous schemes).
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function safeUrl(u){ u=String(u==null?'':u).trim(); return /^https?:\/\//i.test(u) ? u : '#'; }
 // Map a backend error code (or none) to a friendly, localized message.
 function errMsg(code){ const k='err_'+(code||'generic'); const v=t(k); return (v===k)?t('err_generic'):v; }
 // Read a structured error code from a non-OK response, falling back by status.
@@ -674,8 +678,8 @@ async function runMatch(){
 function renderProfile(p){
   if(!p) return;
   document.getElementById('profile').innerHTML =
-    `<div class="profile"><b>${p.headline||p.name||''}</b> · ${p.seniority||''}<br>
-     ${(p.summary||'')}<br><span class="hint">${t('profile_search')}: ${(p.search_query||'')} · ${t('profile_goals')}: ${(p.target_titles||[]).join(', ')}</span></div>`;
+    `<div class="profile"><b>${esc(p.headline||p.name||'')}</b> · ${esc(p.seniority||'')}<br>
+     ${esc(p.summary||'')}<br><span class="hint">${t('profile_search')}: ${esc(p.search_query||'')} · ${t('profile_goals')}: ${esc((p.target_titles||[]).join(', '))}</span></div>`;
 }
 
 let _allJobs=[], _shown=0;
@@ -702,17 +706,17 @@ function showMore(){
 function el(h){const d=document.createElement('div');d.innerHTML=h.trim();return d.firstChild;}
 
 function card(j){
-  const sc=j.score!=null?`<span class="score">${j.score}% ${t('match')}</span>`:'';
+  const sc=j.score!=null?`<span class="score">${esc(j.score)}% ${t('match')}</span>`:'';
   const c=el(`<div class="card">
     <div class="card-top">
-      <div><div class="title">${j.title||''} ${sc}</div><div class="company">${j.company||''}</div></div>
-      <span class="src">${j.source||''}</span>
+      <div><div class="title">${esc(j.title||'')} ${sc}</div><div class="company">${esc(j.company||'')}</div></div>
+      <span class="src">${esc(j.source||'')}</span>
     </div>
-    <div class="meta">📍 ${j.location||'—'} ${j.remote?t('remote_tag'):''}</div>
-    <div class="salary ${salaryClass(j)}">${j.salary||t('salary_none')}</div>
-    ${j.fit?`<div class="fit">${j.fit}</div>`:''}
+    <div class="meta">📍 ${esc(j.location||'—')} ${j.remote?t('remote_tag'):''}</div>
+    <div class="salary ${salaryClass(j)}">${esc(j.salary||t('salary_none'))}</div>
+    ${j.fit?`<div class="fit">${esc(j.fit)}</div>`:''}
     <div class="actions">
-      <a class="btn btn-ghost" href="${j.url||'#'}" target="_blank">${t('card_vacancy')}</a>
+      <a class="btn btn-ghost" href="${safeUrl(j.url)}" target="_blank" rel="noopener noreferrer">${t('card_vacancy')}</a>
       <button class="btn btn-primary" style="width:auto" data-a="letter">${t('card_letter')}</button>
       <button class="btn btn-ghost" data-a="apply">${t('card_apply')}</button>
     </div>
@@ -785,7 +789,7 @@ function card(j){
     if(a==='copy'){ if(!ta.value){toast(t('t_letter_first'));return;}
       toast(await copyText(ta.value, ta)?t('t_copied'):t('t_selected')); }
     if(a==='apply'){ if(!ta.value){ await gen(false); }
-      await copyText(ta.value, ta); window.open(j.url||'#','_blank');
+      await copyText(ta.value, ta); window.open(safeUrl(j.url),'_blank','noopener');
       toast(t('t_buffer')); }
   });
   return c;
@@ -835,7 +839,7 @@ async function handlePaidReturn(){
     localStorage.removeItem('dw_payid'); localStorage.removeItem('dw_pending');
     const resultText=isResume?(gd.resume||''):(gd.letter||'');
     if(isResume){ showResumeResult(resultText); return; }
-    const sub=`<div class="hint">${(ctx.job&&ctx.job.title)||''} · ${(ctx.job&&ctx.job.company)||''}</div>`;
+    const sub=`<div class="hint">${esc((ctx.job&&ctx.job.title)||'')} · ${esc((ctx.job&&ctx.job.company)||'')}</div>`;
     panel.innerHTML=`<div class="profile"><b>${t(titleKey)}</b>${sub}</div>
       <textarea id="paidTa" style="width:100%;min-height:240px;margin-top:8px"></textarea>
       <div class="lactions"><button class="btn btn-ghost" id="paidCopy">${t('letter_copy')}</button></div>`;
@@ -911,7 +915,7 @@ function showResumeResult(text){
   panel.scrollIntoView({behavior:'smooth'});
 }
 function mdToHtml(md){
-  const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   const inl=s=>esc(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>');
   let html='', inList=false; const close=()=>{ if(inList){ html+='</ul>'; inList=false; } };
   (md||'').split('\n').forEach(raw=>{
